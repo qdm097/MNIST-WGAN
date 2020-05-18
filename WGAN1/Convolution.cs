@@ -65,22 +65,10 @@ namespace WGAN1
             {
                 for (int j = 0; j < kernelsizey; j++)
                 {
-                    Gradients[k, j] += input[j] * Statistics.TanhDerriv(ZVals[k / 28, k % 28]) * Errors[k, j];
+                    Gradients[k, j] += input[j] * Statistics.TanhDerriv(ZVals[k / 28, k % 28]) * Errors[k / 28, k % 28];
                 }
             }
         }
-
-
-
-
-
-
-        //BACKPROP IS DONE WRONG
-
-
-
-
-
         /// <summary>
         /// Calculates the errors of the convolution
         /// </summary>
@@ -88,32 +76,22 @@ namespace WGAN1
         public void Backprop(Layer l)
         {
             //Calc 1d errors
-            double[,] temp = new double[l.Length, l.InputLength];
-            Errors = new double[Kernel.GetLength(0), Kernel.GetLength(1)];
+            double[] temp = new double[l.InputLength];
             for (int k = 0; k < l.Length; k++)
             {
                 for (int j = 0; j < l.InputLength; j++)
                 {
-                    temp[k, j] = l.Weights[k, j] * Statistics.TanhDerriv(l.Values[k]) * l.Errors[k];
+                    temp[j] += l.Weights[k, j] * Statistics.TanhDerriv(l.Values[k]) * l.Errors[k];
                 }
             }
             //Convert to 2d array
-
-
-
-            //WORKING HERE (need to figure out formula for backprop of a convolutional layer [is bookmarked])
-
-
-
-
-
-            double[,] convertederrors = new double[Kernel.GetLength(0), Kernel.GetLength(1)];
+            double[,] convertederrors = new double[Kernel.GetLength(1), Kernel.GetLength(1)];
             int iterator = 0;
-            for (int i = 0; i < Kernel.GetLength(0); i++)
+            for (int i = 0; i < Kernel.GetLength(1); i++)
             {
                 for (int ii = 0; ii < Kernel.GetLength(1); ii++)
                 {
-                    //convertederrors[i, ii] = smallerrors[iterator]; iterator++;
+                    convertederrors[i, ii] = temp[iterator]; iterator++;
                 }
             }
             Errors = convertederrors;

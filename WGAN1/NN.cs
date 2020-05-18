@@ -143,26 +143,44 @@ namespace WGAN1
                     {
                         Critic.Layers[jj].Calculate(Critic.Layers[jj - 1].Values, jj == Critic.NumLayers - 1);
                     }
+                    //Backprop critic layer
+                    for (int jj = Critic.NumLayers - 1; jj >= 0; jj--)
+                    {
+                        //If an output layer
+                        if (jj == Critic.NumLayers - 1)
+                        { 
+                            Critic.Layers[Critic.NumLayers - 1].Backprop(-1); 
+                        }
+                        else 
+                        { 
+                            Critic.Layers[jj].Backprop(Critic.Layers[jj + 1]);
+                        }
+                    }
                     Generator.CalcGradients(latentspace, 0, Critic.Layers[0]);
                 }
                 Generator.Update(m, a, c, rmsd);
-
-                //Code that converts normalized generator outputs into an image
-                //Change distribution of output values to 0-255 (brightness)
-                var values = Statistics.Rescale(test, 0, 255);
-                var image = new int[resolution, resolution];
-                int iterator = 0;
-                //Convert values to a 2d array
-                for (int i = 0; i < resolution; i++)
-                {
-                    for (int ii = 0; ii < resolution; ii++)
-                    {
-                        image[ii, i] = (int)values[iterator]; iterator++;
-                    }
-                }
+                //Update image (if applicable)
                 if (imgupdateiterator >= imgspeed)
-                { 
-                    activeform.Invoke((Action)delegate { activeform.image = image; activeform.CScore = Critic.PercCorrect.ToString(); }); imgupdateiterator = 0;
+                {
+                    //Code that converts normalized generator outputs into an image
+                    //Changes distribution of output values to 0-255 (brightness)
+                    var values = Statistics.Rescale(test, 0, 255);
+                    var image = new int[resolution, resolution];
+                    int iterator = 0;
+                    //Convert values to a 2d array
+                    for (int i = 0; i < resolution; i++)
+                    {
+                        for (int ii = 0; ii < resolution; ii++)
+                        {
+                            image[ii, i] = (int)values[iterator]; iterator++;
+                        }
+                    }
+                    activeform.Invoke((Action)delegate
+                    {
+                        activeform.image = image; 
+                        activeform.CScore = Critic.PercCorrect.ToString(); 
+                    }); 
+                    imgupdateiterator = 0;
                 }
                 imgupdateiterator++;
             }
