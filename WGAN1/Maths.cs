@@ -6,8 +6,16 @@ using System.Threading.Tasks;
 
 namespace WGAN1
 {
-    class Statistics
+    class Maths
     {
+        public static double[] Tanh(double[] input)
+        {
+            for (int i = 0; i < input.Length; i++)
+            {
+                input[i] = Tanh(input[i]);
+            }
+            return input;
+        }
         public static double Tanh(double number)
         {
             return (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
@@ -51,6 +59,35 @@ namespace WGAN1
                              Math.Sin(2.0 * Math.PI * u2); //Random normal(0,1)
             }
             return latentspace;
+        }
+        public static T[] Convert<T>(T[,] input)
+        {
+            T[] output = new T[input.Length];
+            int iterator = 0;
+            for (int i = 0; i < input.GetLength(0); i++)
+            {
+                for (int ii = 0; ii < input.GetLength(1); ii++)
+                {
+                    output[iterator] = input[i, ii]; iterator++;
+                }
+            }
+            return output;
+        }
+        public static T[,] Convert<T>(T[] input)
+        {
+            double sqrt = Math.Sqrt(input.Length);
+            //If the input cannot be turned into a square array, throw an error
+            if (sqrt != (int)sqrt) { throw new Exception("Invalid input array size"); }
+            T[,] output = new T[(int)sqrt, (int)sqrt];
+            int iterator = 0;
+            for (int i = 0; i < output.GetLength(0); i++)
+            {
+                for (int ii = 0; ii < output.GetLength(1); ii++)
+                {
+                    output[i, ii] = input[iterator]; iterator++;
+                }
+            }
+            return output;
         }
         public static double[] Normalize(double[] array)
         {

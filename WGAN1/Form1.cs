@@ -17,9 +17,6 @@ namespace WGAN1
         int ctogratio = 5;
         int generatorlcount = 4;
         int gncount = 28;
-        int postCLncount = 100;
-        //At what point the generator's layers are after the convolution layer (inclusive)
-        int convlayerpoint = 4;
         int criticlcount = 5;
         int cncount = 30;
         bool dt;
@@ -49,48 +46,44 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(true, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
-                    GenerateCounts(generatorlcount, gncount, false), 28, learningrate, clippingparameter,
-                    batchsize, ctogratio, rmsdecay, 7, this, 0, convlayerpoint);               
+                NN.Train(false, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
+                    GenerateCounts(generatorlcount, gncount, false), GenerateTypes(generatorlcount, false), 
+                    GenerateTypes(criticlcount, true), 28, learningrate, clippingparameter, batchsize, ctogratio,
+                    rmsdecay, 7, 28, this, 0);               
             });
             thread.IsBackground = true;
             thread.Start();
         }
-
+        /// <summary>
+        /// For now I'm manually setting the conv layer points
+        /// </summary>
+        /// <param name="numlayers">How many layers are in the network</param>
+        /// <returns></returns>
+        List<iLayer> GenerateTypes(int numlayers, bool cog)
+        {
+            var list = new List<iLayer>();
+            for (int i = 0; i < numlayers; i++)
+            {
+                //Layers don't have to be inititalized because they're just a list of types
+                if (!cog && i == 3) { list.Add(new ConvolutionLayer(0, 0)); }
+                else { list.Add(new FullyConnectedLayer(0, 0)); }
+            }
+            return list;
+        }
         private List<int> GenerateCounts(int layercount, int nperlayer, bool cog)
         {
             var output = new List<int>();
-            if (cog)
+            for (int i = 0; i < layercount; i++)
             {
-                for (int i = 0; i < layercount - 1; i++)
-                {
-                    output.Add(nperlayer);
-                }
-                //Output layer
-                output.Add(1);
+                //Critic output layer has 1 neuron
+                if (cog && i == layercount - 1) { output.Add(1); continue; }
+                //Manually setting the c-layer's position and kernel size for now
+                if (i == 3) { output.Add(28 * 28); continue; }
+                //Generator layer has 28 * 28 neurons (if not a c-layer)
+                if (!cog && i == layercount - 1) { output.Add(28 * 28); }
+                output.Add(nperlayer); 
             }
-            else
-            {
-                if (layercount == 0) { return output; }
-                //If no preconv layers
-                if (convlayerpoint == 0) { output.Add(28 * 28); }
-                else
-                {
-                    //Add preconv layers
-                    for (int i = 0; i < (layercount > convlayerpoint ? convlayerpoint : layercount); i++)
-                    {
-                        output.Add(nperlayer);
-                    }
-                }
-                //Add postconv layers
-                for (int i = convlayerpoint; i < layercount; i++)
-                {
-                    if (i != layercount) {  output.Add(postCLncount); }
-                    //Output layer has more neurons
-                    else { output.Add(28 * 28); }
-                }
-                
-            }
+
             return output;
         }
 

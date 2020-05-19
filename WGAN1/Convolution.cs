@@ -6,31 +6,36 @@ using System.Threading.Tasks;
 
 namespace WGAN1
 {
-    class Convolution
+    class ConvolutionLayer : iLayer
     {
-        public double[,] Kernel { get; set; }
+        //Kernel
+        public double[,] Weights { get; set; }
+        public int Length { get; set; }
+        public int InputLength { get; set; }
         double[,] RMSGrad { get; set; }
         public double[,] Errors { get; set; }
         double[,] Gradients { get; set; }
         public double[,] ZVals { get; set; }
+        public double[] Values { get; set; }
         public double AvgUpdate { get; set; }
 
-        public Convolution(int kernelsizex, int kernelsizey)
+        public ConvolutionLayer(int kernelsizex, int kernelsizey)
         {
-            Kernel = new double[kernelsizex, kernelsizey];
+            Length = kernelsizex; InputLength = kernelsizey;
+            Weights = new double[kernelsizex, kernelsizey];
             RMSGrad = new double[kernelsizex, kernelsizey];
             Gradients = new double[kernelsizex, kernelsizey];
             ZVals = new double[kernelsizey, kernelsizey];
         }
-        public Convolution Init(int ksx, int ksy)
+        public iLayer Init(bool useless)
         {
-            Kernel = new double[ksx, ksy];
+            Weights = new double[Length, InputLength];
             var r = new Random();
-            for (int i = 0; i < ksx; i++)
+            for (int i = 0; i < Length; i++)
             {
-                for (int ii = 0; ii < ksy; ii++)
+                for (int ii = 0; ii < InputLength; ii++)
                 {
-                    Kernel[i, ii] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(3d / (ksy * ksy));
+                    Weights[i, ii] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(3d / (Length * InputLength));
                 }
             }
             return this;
@@ -38,9 +43,9 @@ namespace WGAN1
         public void Descend(int batchsize, double learningrate, double clipparameter, double RMSdecay)
         {
             AvgUpdate = 0;
-            for (int i = 0; i < Kernel.GetLength(0); i++)
+            for (int i = 0; i < Weights.GetLength(0); i++)
             {
-                for (int ii = 0; ii < Kernel.GetLength(1); ii++)
+                for (int ii = 0; ii < Weights.GetLength(1); ii++)
                 {
                     double gradient = Gradients[i, ii] * (-2d / batchsize);
                     RMSGrad[i, ii] = (RMSGrad[i, ii] * RMSdecay) + ((1 - RMSdecay) * (gradient * gradient));
@@ -48,41 +53,56 @@ namespace WGAN1
                     //Gradient clipping
                     if (update > clipparameter) { update = clipparameter; }
                     if (update < -clipparameter) { update = -clipparameter; }
-                    Kernel[i, ii] -= update;
+                    Weights[i, ii] -= update;
                     AvgUpdate -= update;
                 }
             }
-            AvgUpdate /= Kernel.Length;
-            Gradients = new double[Kernel.GetLength(0), Kernel.GetLength(1)];
+            AvgUpdate /= Weights.Length;
+            Gradients = new double[Weights.GetLength(0), Weights.GetLength(1)];
         }
-        public void Descend(double[] input)
+        public void Descend(double[] input, bool useless)
         {
-            var kernelsizex = Kernel.GetLength(0);
-            var kernelsizey = Kernel.GetLength(1);
 
-            Gradients = new double[kernelsizex, kernelsizey];
-            for (int k = 0; k < kernelsizex; k++)
+            Gradients = new double[Length, InputLength];
+            for (int k = 0; k < Length; k++)
             {
-                for (int j = 0; j < kernelsizey; j++)
+                for (int j = 0; j < InputLength; j++)
                 {
-                    Gradients[k, j] += input[j] * Statistics.TanhDerriv(ZVals[k / 28, k % 28]) * Errors[k / 28, k % 28];
+                    Gradients[k, j] += input[j] * Maths.TanhDerriv(ZVals[k / 28, k % 28]) * Errors[k / 28, k % 28];
                 }
             }
+        }
+        public void Descend(double[,] input)
+        {
+            Descend(Maths.Convert(input), false);
         }
         /// <summary>
         /// Calculates the errors of the convolution
         /// </summary>
         /// <param name="l">The layer which comes after the convolutional layer</param>
-        public void Backprop(Layer l)
+        public void Backprop(iLayer l)
         {
-            Errors = new double[28, 28];
-            for (int k = 0; k < l.Length; k++)
+            if (l is FullyConnectedLayer)
             {
-                for (int j = 0; j < l.InputLength; j++)
+                var fcl = l as FullyConnectedLayer;
+
+                //Dot product
+                var temperrors = new double[Length];
+                for (int x = 0; x < fcl.Length; x++)
                 {
-                    Errors[k, j] += l.Weights[k, j] * Statistics.TanhDerriv(l.Values[k]) * l.Errors[k];
+                    for (int y = 0; y < Length; y++)
+                    {
+                        temperrors[y] += fcl.Weights[x, y] * Maths.TanhDerriv(fcl.Values[x]) * fcl.Errors[x];
+                    }
                 }
+                //Convert to 2d array
+                Errors = Maths.Convert(temperrors);
             }
+            else
+            {
+                throw new Exception("Double conv layers not supported yet");
+            }
+           
             /*
             //Calc 1d errors
             double[] temp = new double[l.InputLength];
@@ -106,37 +126,33 @@ namespace WGAN1
             Errors = convertederrors;
             */
         }
+        public void Backprop(double useless) { throw new Exception("The convolution layer is never an output layer"); }
         /// <summary>
         /// Calculates the dot product of the kernel and input matrix.
         /// Matrices should be size [x, y] and [y], respectively, where x is the output size and y is the latent space's size
         /// </summary>
         /// <param name="input">The input matrix</param>
+        /// <param name="isoutput">Whether to use hyperbolic tangent on the output</param>
         /// <returns></returns>
-        public double[] CalcDotProduct(double[] input)
+        public void Calculate(double[] input, bool isoutput)
         {
-            int xsize = Kernel.GetLength(0);
-            int ysize = input.Length;
-            if (Kernel.GetLength(1) != ysize) { throw new Exception("Invalid matrix sizes"); }
-            var output = new double[ysize * ysize];
+            if (Weights.GetLength(1) != InputLength) { throw new Exception("Invalid matrix sizes"); }
+            Values = new double[InputLength * InputLength];
             //Dot product
-            for (int x = 0; x < xsize; x++)
+            for (int x = 0; x < Length; x++)
             {
-                for (int y = 0; y < ysize; y++)
+                for (int y = 0; y < InputLength; y++)
                 {
                     //May be done incorrectly (output[y]..?)
-                    output[x] += Kernel[x, y] * input[y];
+                    Values[x] += Weights[x, y] * input[y];
                 }
             }
-            ZVals = new double[ysize, ysize];
-            int iterator = 0;
-            for (int i = 0; i < ysize; i++)
-            {
-                for (int ii = 0; ii < ysize; ii++)
-                {
-                    ZVals[i, ii] = output[iterator]; iterator++;
-                }
-            }
-            return output;
+            ZVals = Maths.Convert(Values);
+            if (!isoutput) { Values = Maths.Tanh(Values); }
+        }
+        public void Calculate(double[,] input)
+        {
+            Calculate(Maths.Convert(input), false);
         }
     }
 }

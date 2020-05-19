@@ -86,7 +86,7 @@ namespace WGAN1
                 result[i] = array[i];
             }
             //Normalize the result matrix
-            return Statistics.Normalize(result);
+            return Maths.Normalize(result);
         }
         /// <summary>
         /// Returns a NN from a file
@@ -96,42 +96,30 @@ namespace WGAN1
         public static NN Read(bool GorD)
         {
             NN nn = new NN();
-            nn.Layers = new List<Layer>();
-            nn.LayerCounts = new List<int>();
+            nn.Layers = new List<iLayer>();
             string[] text;
             using (StreamReader sr = File.OpenText(GorD ? DWBPath : GWBPath))
             {
                 text = sr.ReadToEnd().Split(',');
             }
-
-            //If there's a conv layer, read it
-            int iterator = 1;
-            if (int.Parse(text[0]) == 1)
-            {
-                nn.ConvLayerPoint = int.Parse(text[1]);
-                nn.ConvLayer = new Convolution(int.Parse(text[2]), int.Parse(text[3]));
-                iterator = 4;
-                for (int i = 0; i < nn.ConvLayer.Kernel.GetLength(0); i++)
-                {
-                    for (int ii = 0; ii < nn.ConvLayer.Kernel.GetLength(1); ii++)
-                    {
-                        nn.ConvLayer.Kernel[i, ii] = double.Parse(text[iterator]); iterator++;
-                    }
-                }
-            }
-            nn.NumLayers = int.Parse(text[iterator]); iterator++;
-            
+            int iterator = 0;
             for (int i = 0; i < nn.NumLayers; i++)
             {
-                nn.LayerCounts.Add(int.Parse(text[iterator])); iterator++;
-                nn.Layers.Add(new Layer(nn.LayerCounts[i], int.Parse(text[iterator]))); iterator++;
-                for (int j = 0; j < nn.LayerCounts[i]; j++)
+                bool fclORcl = int.Parse(text[iterator]) == 0; iterator++;
+                int LayerCount = int.Parse(text[iterator]); iterator++;
+                int InputLayerCount = int.Parse(text[iterator]); iterator++;
+
+                if (fclORcl) { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); }
+                else { nn.Layers.Add(new ConvolutionLayer(LayerCount, InputLayerCount)); }
+
+                for (int j = 0; j < nn.Layers[i].Length; j++)
                 {
                     for (int jj = 0; jj < nn.Layers[i].InputLength; jj++)
                     {
                         nn.Layers[i].Weights[j, jj] = double.Parse(text[iterator]); iterator++;
                     }
-                    if (i != nn.NumLayers - 1) { nn.Layers[i].Biases[j] = double.Parse(text[iterator]); iterator++; }
+                    if (i != nn.NumLayers - 1 && nn.Layers[i] is FullyConnectedLayer) 
+                    { (nn.Layers[i] as FullyConnectedLayer).Biases[j] = double.Parse(text[iterator]); iterator++; }
                 }
             }
             return nn;
@@ -144,30 +132,19 @@ namespace WGAN1
         public static void Write(NN nn, bool GorD)
         {
             StreamWriter sw = new StreamWriter(new FileStream(GorD ? GWBPath : DWBPath, FileMode.Create, FileAccess.Write, FileShare.None));
-          
-            if (!(nn.ConvLayer is null))
-            {
-                sw.Write("1," + nn.ConvLayerPoint + "," + nn.ConvLayer.Kernel.GetLength(0) + "," + nn.ConvLayer.Kernel.GetLength(1) + ",");
-                for (int j = 0; j < nn.ConvLayer.Kernel.GetLength(0); j++)
-                {
-                    for (int jj = 0; jj < nn.ConvLayer.Kernel.GetLength(1); jj++)
-                    {
-                        sw.Write(nn.ConvLayer.Kernel[j, jj] + ",");
-                    }
-                }
-            }
-            else { sw.Write("0,"); }
             sw.Write(nn.NumLayers + ",");
             for (int i = 0; i < nn.NumLayers; i++)
             {
-                sw.Write(nn.LayerCounts[i] + "," + nn.Layers[i].InputLength + ",");
-                for (int j = 0; j < nn.LayerCounts[i]; j++)
+                sw.Write((nn.Layers[i] is FullyConnectedLayer ? 0 : 1) + "," 
+                    + nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ",");
+                for (int j = 0; j < nn.Layers[i].Length; j++)
                 {
                     for (int jj = 0; jj < nn.Layers[i].InputLength; jj++)
                     {
                         sw.Write(nn.Layers[i].Weights[j, jj] + ",");
                     }
-                    if (i != nn.NumLayers - 1) { sw.Write(nn.Layers[i].Biases[j] + ","); }
+                    if (i != nn.NumLayers - 1 && nn.Layers[i] is FullyConnectedLayer)
+                    { sw.Write((nn.Layers[i] as FullyConnectedLayer).Biases[j] + ","); }
                 }
             }
             sw.Close();

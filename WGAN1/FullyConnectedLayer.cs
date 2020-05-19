@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WGAN1
 {
-    class Layer
+    class FullyConnectedLayer : iLayer
     {
         public int Length { get; set; }
         public int InputLength { get; set; }
@@ -19,7 +19,7 @@ namespace WGAN1
         double[] BRMSGrad { get; set; }
         double[] BiasGradient { get; set; }
         public double AvgGradient { get; set; }
-        public Layer(int l, int il)
+        public FullyConnectedLayer(int l, int il)
         {
             Length = l; InputLength = il;
             WeightGradient = new double[l, il];
@@ -28,6 +28,23 @@ namespace WGAN1
             BRMSGrad = new double[l];
             Weights = new double[l, il];
             Biases = new double[l];
+        }
+        public iLayer Init(bool isoutput)
+        {
+            var r = new Random();
+            //All layers have weights
+            Weights = new double[Length, InputLength];
+            //Output layer has no biases
+            if (!isoutput) { Biases = new double[Length]; }
+            //Initialize weights (and biases to zero)
+            for (int j = 0; j < Length; j++)
+            {
+                for (int jj = 0; jj < InputLength; jj++)
+                {
+                    Weights[j, jj] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(3d / (InputLength * InputLength));
+                }
+            }
+            return this;
         }
         /// <summary>
         /// Applies the gradients to the weights as a batch
@@ -92,34 +109,39 @@ namespace WGAN1
                 for (int ii = 0; ii < InputLength; ii++)
                 {
                     //Weight gradients
-                    WeightGradient[i, ii] = input[ii] * Statistics.TanhDerriv(Values[i]) * Errors[i];
+                    WeightGradient[i, ii] = input[ii] * Maths.TanhDerriv(Values[i]) * Errors[i];
                 }
                 if (output) { continue; }
                 //Bias gradients
-                BiasGradient[i] = Statistics.TanhDerriv(Values[i]) * Errors[i];
+                BiasGradient[i] = Maths.TanhDerriv(Values[i]) * Errors[i];
             }
         }
-        public void Backprop(Convolution convl)
+        public void Backprop(iLayer output)
         {
-            Errors = new double[Length];
-            //Dot product
-            for (int x = 0; x < convl.Errors.GetLength(0); x++)
+            if (output is FullyConnectedLayer)
             {
-                for (int y = 0; y < Length; y++)
+                var FCLOutput = output as FullyConnectedLayer;
+                Errors = new double[Length];
+                for (int k = 0; k < FCLOutput.Length; k++)
                 {
-                    //May be done incorrectly (output[y]..?)
-                    Errors[y] += convl.Kernel[x, y] * Statistics.TanhDerriv(convl.ZVals[x, y]) * convl.Errors[x, y];
+                    for (int j = 0; j < Length; j++)
+                    {
+                        Errors[j] += FCLOutput.Weights[k, j] * Maths.TanhDerriv(FCLOutput.Values[k]) * FCLOutput.Errors[k];
+                    }
                 }
             }
-        }
-        public void Backprop(Layer output)
-        {
-            Errors = new double[Length];
-            for (int k = 0; k < output.Length; k++)
+            else
             {
-                for (int j = 0; j < Length; j++)
+                var CLOutput = output as ConvolutionLayer;
+                Errors = new double[Length];
+                //Dot product
+                for (int x = 0; x < CLOutput.Errors.GetLength(0); x++)
                 {
-                    Errors[j] += output.Weights[k, j] * Statistics.TanhDerriv(output.Values[k]) * output.Errors[k];
+                    for (int y = 0; y < Length; y++)
+                    {
+                        //May be done incorrectly (output[y]..?)
+                        Errors[y] += CLOutput.Weights[x, y] * Maths.TanhDerriv(CLOutput.ZVals[x, y]) * CLOutput.Errors[x, y];
+                    }
                 }
             }
         }
@@ -143,17 +165,13 @@ namespace WGAN1
                 if (!output)
                 {
                     Values[k] += Biases[k];
-                    Values[k] = Statistics.Tanh(Values[k]);
                 }
-                else { Values[k] = Values[k]; }
             }
+            if (!output) { Values = Maths.Tanh(Values); }
         }
         public void Calculate(double[,] input)
         {
-            double[] input2 = new double[input.Length];
-            int iterator = 0;
-            foreach (double d in input) { input2[iterator] = d; iterator++; }
-            Calculate(input2, false);
+            Calculate(Maths.Convert(input), false);
         }
     }
 }
