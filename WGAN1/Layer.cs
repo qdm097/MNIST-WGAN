@@ -99,6 +99,19 @@ namespace WGAN1
                 BiasGradient[i] = Statistics.TanhDerriv(Values[i]) * Errors[i];
             }
         }
+        public void Backprop(Convolution convl)
+        {
+            Errors = new double[Length];
+            //Dot product
+            for (int x = 0; x < convl.Errors.GetLength(0); x++)
+            {
+                for (int y = 0; y < Length; y++)
+                {
+                    //May be done incorrectly (output[y]..?)
+                    Errors[y] += convl.Kernel[x, y] * Statistics.TanhDerriv(convl.ZVals[x, y]) * convl.Errors[x, y];
+                }
+            }
+        }
         public void Backprop(Layer output)
         {
             Errors = new double[Length];

@@ -10,15 +10,18 @@ namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        double learningrate = 0;
+        double learningrate = 0.000146;
         double rmsdecay = 0.8;
-        double clippingparameter = 1;
+        double clippingparameter = 10;
         int batchsize = 5;
         int ctogratio = 5;
-        int generatorlcount = 0;
-        int gncount = 30;
+        int generatorlcount = 4;
+        int gncount = 28;
+        int postCLncount = 100;
+        //At what point the generator's layers are after the convolution layer (inclusive)
+        int convlayerpoint = 4;
         int criticlcount = 5;
-        int cncount = 10;
+        int cncount = 30;
         bool dt;
         public bool DoneTraining { get { return dt; } set { dt = value; if (dt) { TrainBtn.Enabled = true; dt = false; } } }
         string cs;
@@ -48,7 +51,7 @@ namespace WGAN1
             {
                 NN.Train(false, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
                     GenerateCounts(generatorlcount, gncount, false), 28, learningrate, clippingparameter,
-                    batchsize, ctogratio, rmsdecay, 7, this, 0);               
+                    batchsize, ctogratio, rmsdecay, 7, this, 0, convlayerpoint);               
             });
             thread.IsBackground = true;
             thread.Start();
@@ -57,7 +60,6 @@ namespace WGAN1
         private List<int> GenerateCounts(int layercount, int nperlayer, bool cog)
         {
             var output = new List<int>();
-            if ((layercount == 0) && !cog) { return output; }
             if (cog)
             {
                 for (int i = 0; i < layercount - 1; i++)
@@ -69,14 +71,25 @@ namespace WGAN1
             }
             else
             {
-                //Latent space (input layer)
-                if (layercount != 1) { output.Add(28); }
-                for (int i = 0; i < layercount - 2; i++)
+                if (layercount == 0) { return output; }
+                //If no preconv layers
+                if (convlayerpoint == 0) { output.Add(28 * 28); }
+                else
                 {
-                    output.Add(nperlayer);
+                    //Add preconv layers
+                    for (int i = 0; i < (layercount > convlayerpoint ? convlayerpoint : layercount); i++)
+                    {
+                        output.Add(nperlayer);
+                    }
                 }
-                //Output layer
-                output.Add(28 * 28);
+                //Add postconv layers
+                for (int i = convlayerpoint; i < layercount; i++)
+                {
+                    if (i != layercount) {  output.Add(postCLncount); }
+                    //Output layer has more neurons
+                    else { output.Add(28 * 28); }
+                }
+                
             }
             return output;
         }
@@ -113,6 +126,10 @@ namespace WGAN1
             if (!int.TryParse(ClipTxt.Text, out int clippar)) { MessageBox.Show("NAN"); return; }
             if (clippar <= 0 || clippar > 10) { MessageBox.Show("The clipping parameter must be between 0 and 10"); return; }
             clippingparameter = clippar;
+        }
+        private void ClearBtn_Click(object sender, EventArgs e)
+        {
+            NN.Clear = true;
         }
         public int[,] Scaler(int[,] input, int scale)
         {

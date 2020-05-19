@@ -8,11 +8,11 @@ namespace WGAN1
 {
     class Convolution
     {
-        double[,] Kernel { get; set; }
+        public double[,] Kernel { get; set; }
         double[,] RMSGrad { get; set; }
-        double[,] Errors { get; set; }
+        public double[,] Errors { get; set; }
         double[,] Gradients { get; set; }
-        double[,] ZVals { get; set; }
+        public double[,] ZVals { get; set; }
         public double AvgUpdate { get; set; }
 
         public Convolution(int kernelsizex, int kernelsizey)
@@ -75,6 +75,15 @@ namespace WGAN1
         /// <param name="l">The layer which comes after the convolutional layer</param>
         public void Backprop(Layer l)
         {
+            Errors = new double[28, 28];
+            for (int k = 0; k < l.Length; k++)
+            {
+                for (int j = 0; j < l.InputLength; j++)
+                {
+                    Errors[k, j] += l.Weights[k, j] * Statistics.TanhDerriv(l.Values[k]) * l.Errors[k];
+                }
+            }
+            /*
             //Calc 1d errors
             double[] temp = new double[l.InputLength];
             for (int k = 0; k < l.Length; k++)
@@ -95,6 +104,7 @@ namespace WGAN1
                 }
             }
             Errors = convertederrors;
+            */
         }
         /// <summary>
         /// Calculates the dot product of the kernel and input matrix.

@@ -15,11 +15,13 @@ namespace WGAN1
         public static int ConvXSize = 28 * 28;
         public Convolution ConvLayer { get; set; }
         public List<Layer> Layers { get; set; }
+        int ConvLayerPoint { get; set; }
         public double LearningRate { get; set; }
         public double ClippingParameter { get; set; }
         public double BatchSize { get; set; }
         public static bool Training = false;
-        int trials = 0;
+        public static bool Clear = false;
+        int Trials = 0;
         public double PercCorrect = 0;
 
         /// <summary>
@@ -27,13 +29,14 @@ namespace WGAN1
         /// </summary>
         /// <param name="l">Number of layers in the network</param>
         /// <param name="wcs">Number of weights/biases in the network</param>
-        public NN GenerateNN(int l, List<int> wcs, int inputsize, bool iscnn)
+        public static NN GenerateNN(int l, List<int> wcs, int inputsize, bool iscnn)
         {
             if (l != wcs.Count()) { throw new Exception("Invalid wc to l ratio"); }
             NN nn = new NN();
             nn.NumLayers = l;
             nn.LayerCounts = wcs;
             nn.Layers = new List<Layer>();
+            nn.ConvLayerPoint = 0;
             var r = new Random();
             if (iscnn)
             {
@@ -86,17 +89,19 @@ namespace WGAN1
         /// <param name="LatentSize">The size of the latent space for the generator</param>
         /// <param name="activeform">The form where the image will be updated</param>
         /// <param name="imgspeed">How quickly the image should update as a function of the algorithm</param>
+        /// <param name="convlayerpoint">At what point the generator's neurons are after the convolutional layer</param>
         public static void Train(bool LoadOrGenerate, int clcount, int glcount, List<int> cwbcount, List<int> gwbcount,
-            int resolution, double a, double c, int m, int ctg, double rmsd, int num, Form1 activeform, int imgspeed)
+            int resolution, double a, double c, int m, int ctg, double rmsd, int num, Form1 activeform, int imgspeed, int convlayerpoint)
         {
             NN Critic;
             NN Generator;
             if (LoadOrGenerate) { Critic = IO.Read(true); Generator = IO.Read(false); }
             else 
             {
-                Critic = new NN().SetHyperParams(a, c).GenerateNN(clcount, cwbcount, resolution * resolution, false);
+                Critic = GenerateNN(clcount, cwbcount, resolution * resolution, false).SetHyperParams(a, c);
                 //Generator does not have clipping
-                Generator = new NN().SetHyperParams(a, 99).GenerateNN(glcount, gwbcount, LatentSize, true);
+                Generator = GenerateNN(glcount, gwbcount, LatentSize, true).SetHyperParams(a, 99);
+                Generator.ConvLayerPoint = convlayerpoint;
             }
             int imgupdateiterator = 0;
             while (Training)
@@ -109,27 +114,33 @@ namespace WGAN1
                     var fakesamples = new List<double[]>();
                     for (int ii = 0; ii < m; ii++)
                     {
-                        //Generate latent space
+                        //Generate fake image from latent space
                         fakesamples.Add(Generator.GenerateSample(Statistics.RandomGaussian(LatentSize)));
                         //Find next image
                         realsamples.Add(IO.FindNextNumber(num));
                     }
                     double realanswer = 1d;
-                    double fakeanswer = -1;
+                    double fakeanswer = -1d;
                     double overallscore = 0;
                     for (int j = 0; j < m; j++)
                     {
                         //Need to implement Wasserstein Loss = real score - fake score
 
+                        //Real image
                         Critic.Calculate(realsamples[j]);
-                        overallscore += Critic.Layers[Critic.NumLayers - 1].Values[0] > 0 ? 1 : 0;
-                        Critic.Calculate(fakesamples[j]);
-                        overallscore += Critic.Layers[Critic.NumLayers - 1].Values[0] < 0 ? 1 : 0;
                         Critic.CalcGradients(realsamples[i], realanswer, null);
+                        overallscore += Critic.Layers[Critic.NumLayers - 1].Values[0] > 0 ? 1 : 0;
+                        //Fake image
+                        Critic.Calculate(fakesamples[j]);
                         Critic.CalcGradients(fakesamples[i], fakeanswer, null);
+                        overallscore += Critic.Layers[Critic.NumLayers - 1].Values[0] < 0 ? 1 : 0;
                     }
+                    if (Clear) { Critic.Trials = 0; Critic.PercCorrect = 0; Clear = false; }
                     overallscore /= 2 * m;
-                    Critic.PercCorrect = overallscore;
+                    double ratio = (double)Critic.Trials / (Critic.Trials + 1);
+                    Critic.PercCorrect = (ratio * Critic.PercCorrect) + ((1 - ratio) * overallscore);
+                    Critic.Trials++;
+                    //Update WBs
                     Critic.Update(m, a, c, rmsd);
                 }
                 //Train generator
@@ -156,7 +167,7 @@ namespace WGAN1
                             Critic.Layers[jj].Backprop(Critic.Layers[jj + 1]);
                         }
                     }
-                    Generator.CalcGradients(latentspace, 0, Critic.Layers[0]);
+                    Generator.CalcGradients(latentspace, -1, Critic.Layers[0]);
                 }
                 Generator.Update(m, a, c, rmsd);
                 //Update image (if applicable)
@@ -205,8 +216,8 @@ namespace WGAN1
         /// <param name="loss">The loss of the NN</param>
         public void CalcGradients(double[] input, double loss, Layer critic)
         {
-            //Backpropegate
-            for (int jj = NumLayers - 1; jj >= 0; jj--)
+            //Backpropegate post conv layers
+            for (int jj = NumLayers - 1; jj >= (ConvLayerPoint != 0 ? ConvLayerPoint - 1 : 0); jj--)
             {
                 //If not an output layer
                 if (jj != NumLayers - 1) { Layers[jj].Backprop(Layers[jj + 1]); continue; }
@@ -215,18 +226,50 @@ namespace WGAN1
                 if (!(critic is null)) { Layers[jj].Backprop(critic); continue; }
                 throw new Exception("Invalid inputs");
             }
+
+            //Backprop conv layer
             if (!(ConvLayer is null))
             {
-                if (Layers.Count == 0) { ConvLayer.Backprop(critic); }
-                else { ConvLayer.Backprop(Layers[0]); }
+                if (Layers.Count == 0 || ConvLayerPoint > NumLayers) { ConvLayer.Backprop(critic); }
+                else { ConvLayer.Backprop(Layers[ConvLayerPoint - 1]); }
                 ConvLayer.Descend(input);
             }
-            //Descend
-            for (int jj = 0; jj < NumLayers; jj++)
+
+            //Backprop preconv layers
+            if (ConvLayerPoint != 0) { Layers[(NumLayers > ConvLayerPoint ? ConvLayerPoint : NumLayers) - 1].Backprop(ConvLayer); }
+            if (ConvLayerPoint > 1)
             {
-                if (jj == 0) { Layers[jj].Descend(input, false); }
-                else { Layers[jj].Descend(Layers[jj - 1].Values, jj == NumLayers - 1); }
+                //Backprop preconv layers
+                for (int jj = (NumLayers > ConvLayerPoint ? ConvLayerPoint : NumLayers) - 2; jj >= 0; jj--)
+                {
+                    Layers[jj].Backprop(Layers[jj + 1]);
+                }
             }
+            //Descend
+            if (ConvLayerPoint != 0)
+            {
+                //Preconv layers
+                for (int jj = 0; jj < (NumLayers > ConvLayerPoint ? ConvLayerPoint : NumLayers); jj++)
+                {
+                    if (jj == 0) { Layers[jj].Descend(input, false); }
+                    else { Layers[jj].Descend(Layers[jj - 1].Values, false); }
+                }
+                //Postconv layers
+                for (int jj = ConvLayerPoint; jj < NumLayers; jj++)
+                {
+                    if (jj == ConvLayerPoint) { Layers[jj].Descend(ConvLayer.ZVals); }
+                    else { Layers[jj].Descend(Layers[jj - 1].Values, jj == NumLayers - 1); }
+                }
+            }
+            else
+            {
+                for (int jj = 0; jj < NumLayers; jj++)
+                {
+                    if (jj == 0) { Layers[jj].Descend(input, false); }
+                    else { Layers[jj].Descend(Layers[jj - 1].Values, jj == NumLayers - 1); }
+                }
+            }
+            
         }
         /// <summary>
         /// Updates the NN's layer's weights after a full batch of gradient descent
@@ -245,14 +288,26 @@ namespace WGAN1
         }
         double[] GenerateSample(double[] latentspace)
         {
-            var image = ConvLayer.CalcDotProduct(latentspace);
-            if (Layers.Count > 0) { Layers[0].Calculate(image, false); }
-            for (int i = 1; i < NumLayers; i++)
-            {
-                Layers[i].Calculate(Layers[i - 1].Values, i == NumLayers - 1);
+            double[] image = latentspace;
+            //Return convolved image if there are no layers
+            if (Layers.Count == 0) { return ConvLayer.CalcDotProduct(image); }
+            //Layers to determine input space
+            if (ConvLayerPoint != 0) {
+                for (int i = 0; i < (NumLayers > ConvLayerPoint ? ConvLayerPoint : NumLayers); i++)
+                {
+                    Layers[i].Calculate(image, false);
+                    image = Layers[i].Values;
+                }
             }
-            //Normalize resulting matrix (or convolution's matrix if there are no other layers)
-            return Statistics.Normalize(Layers.Count > 0 ? Layers[Layers.Count - 1].Values : image);
+            image = ConvLayer.CalcDotProduct(image);
+            //Layers to modify output image
+           
+            for (int i = ConvLayerPoint; i < NumLayers; i++)
+            {
+                if (i == ConvLayerPoint) { Layers[ConvLayerPoint].Calculate(image, false); }
+                else { Layers[i].Calculate(Layers[i - 1].Values, i == NumLayers - 1); }
+            }
+            return image;
         }
     }
 }
