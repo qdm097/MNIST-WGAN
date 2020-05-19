@@ -102,7 +102,8 @@ namespace WGAN1
             {
                 text = sr.ReadToEnd().Split(',');
             }
-            int iterator = 0;
+            nn.NumLayers = int.Parse(text[0]);
+            int iterator = 1;
             for (int i = 0; i < nn.NumLayers; i++)
             {
                 bool fclORcl = int.Parse(text[iterator]) == 0; iterator++;

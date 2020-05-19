@@ -13,9 +13,9 @@ namespace WGAN1
         public int Length { get; set; }
         public int InputLength { get; set; }
         double[,] RMSGrad { get; set; }
-        public double[,] Errors { get; set; }
+        public double[] Errors { get; set; }
         double[,] Gradients { get; set; }
-        public double[,] ZVals { get; set; }
+        public double[] ZVals { get; set; }
         public double[] Values { get; set; }
         public double AvgUpdate { get; set; }
 
@@ -25,7 +25,6 @@ namespace WGAN1
             Weights = new double[kernelsizex, kernelsizey];
             RMSGrad = new double[kernelsizex, kernelsizey];
             Gradients = new double[kernelsizex, kernelsizey];
-            ZVals = new double[kernelsizey, kernelsizey];
         }
         public iLayer Init(bool useless)
         {
@@ -68,7 +67,7 @@ namespace WGAN1
             {
                 for (int j = 0; j < InputLength; j++)
                 {
-                    Gradients[k, j] += input[j] * Maths.TanhDerriv(ZVals[k / 28, k % 28]) * Errors[k / 28, k % 28];
+                    Gradients[k, j] += input[j] * Maths.TanhDerriv(ZVals[k]) * Errors[k];
                 }
             }
         }
@@ -87,16 +86,14 @@ namespace WGAN1
                 var fcl = l as FullyConnectedLayer;
 
                 //Dot product
-                var temperrors = new double[Length];
+                Errors = new double[Length];
                 for (int x = 0; x < fcl.Length; x++)
                 {
                     for (int y = 0; y < Length; y++)
                     {
-                        temperrors[y] += fcl.Weights[x, y] * Maths.TanhDerriv(fcl.Values[x]) * fcl.Errors[x];
+                        Errors[y] += fcl.Weights[x, y] * Maths.TanhDerriv(fcl.Values[x]) * fcl.Errors[x];
                     }
                 }
-                //Convert to 2d array
-                Errors = Maths.Convert(temperrors);
             }
             else
             {
@@ -147,7 +144,7 @@ namespace WGAN1
                     Values[x] += Weights[x, y] * input[y];
                 }
             }
-            ZVals = Maths.Convert(Values);
+            ZVals = Values;
             if (!isoutput) { Values = Maths.Tanh(Values); }
         }
         public void Calculate(double[,] input)

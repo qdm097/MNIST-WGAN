@@ -135,12 +135,12 @@ namespace WGAN1
                 var CLOutput = output as ConvolutionLayer;
                 Errors = new double[Length];
                 //Dot product
-                for (int x = 0; x < CLOutput.Errors.GetLength(0); x++)
+                for (int x = 0; x < CLOutput.Length; x++)
                 {
                     for (int y = 0; y < Length; y++)
                     {
                         //May be done incorrectly (output[y]..?)
-                        Errors[y] += CLOutput.Weights[x, y] * Maths.TanhDerriv(CLOutput.ZVals[x, y]) * CLOutput.Errors[x, y];
+                        Errors[y] += CLOutput.Weights[x, y] * Maths.TanhDerriv(CLOutput.ZVals[x]) * CLOutput.Errors[x];
                     }
                 }
             }

@@ -10,12 +10,12 @@ namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        double learningrate = 0.000146;
-        double rmsdecay = 0.8;
-        double clippingparameter = 10;
+        double learningrate = 0.0000146;
+        double rmsdecay = 0.7;
+        double clippingparameter = 1;
         int batchsize = 5;
         int ctogratio = 5;
-        int generatorlcount = 4;
+        int generatorlcount = 5;
         int gncount = 28;
         int criticlcount = 5;
         int cncount = 30;
@@ -46,7 +46,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(false, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
+                NN.Train(true, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
                     GenerateCounts(generatorlcount, gncount, false), GenerateTypes(generatorlcount, false), 
                     GenerateTypes(criticlcount, true), 28, learningrate, clippingparameter, batchsize, ctogratio,
                     rmsdecay, 7, 28, this, 0);               
@@ -78,9 +78,9 @@ namespace WGAN1
                 //Critic output layer has 1 neuron
                 if (cog && i == layercount - 1) { output.Add(1); continue; }
                 //Manually setting the c-layer's position and kernel size for now
-                if (i == 3) { output.Add(28 * 28); continue; }
+                if (i == 3) { output.Add(100); continue; }
                 //Generator layer has 28 * 28 neurons (if not a c-layer)
-                if (!cog && i == layercount - 1) { output.Add(28 * 28); }
+                if (!cog && i == layercount - 1) { output.Add(28 * 28); continue; }
                 output.Add(nperlayer); 
             }
 
