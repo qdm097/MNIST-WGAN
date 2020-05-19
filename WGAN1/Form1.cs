@@ -49,7 +49,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(false, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
+                NN.Train(true, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
                     GenerateCounts(generatorlcount, gncount, false), 28, learningrate, clippingparameter,
                     batchsize, ctogratio, rmsdecay, 7, this, 0, convlayerpoint);               
             });

@@ -99,12 +99,28 @@ namespace WGAN1
             nn.Layers = new List<Layer>();
             nn.LayerCounts = new List<int>();
             string[] text;
-            using (StreamReader sr = File.OpenText(GorD ? GWBPath : DWBPath))
+            using (StreamReader sr = File.OpenText(GorD ? DWBPath : GWBPath))
             {
                 text = sr.ReadToEnd().Split(',');
             }
-            nn.NumLayers = int.Parse(text[0]);
+
+            //If there's a conv layer, read it
             int iterator = 1;
+            if (int.Parse(text[0]) == 1)
+            {
+                nn.ConvLayerPoint = int.Parse(text[1]);
+                nn.ConvLayer = new Convolution(int.Parse(text[2]), int.Parse(text[3]));
+                iterator = 4;
+                for (int i = 0; i < nn.ConvLayer.Kernel.GetLength(0); i++)
+                {
+                    for (int ii = 0; ii < nn.ConvLayer.Kernel.GetLength(1); ii++)
+                    {
+                        nn.ConvLayer.Kernel[i, ii] = double.Parse(text[iterator]); iterator++;
+                    }
+                }
+            }
+            nn.NumLayers = int.Parse(text[iterator]); iterator++;
+            
             for (int i = 0; i < nn.NumLayers; i++)
             {
                 nn.LayerCounts.Add(int.Parse(text[iterator])); iterator++;
@@ -128,6 +144,19 @@ namespace WGAN1
         public static void Write(NN nn, bool GorD)
         {
             StreamWriter sw = new StreamWriter(new FileStream(GorD ? GWBPath : DWBPath, FileMode.Create, FileAccess.Write, FileShare.None));
+          
+            if (!(nn.ConvLayer is null))
+            {
+                sw.Write("1," + nn.ConvLayerPoint + "," + nn.ConvLayer.Kernel.GetLength(0) + "," + nn.ConvLayer.Kernel.GetLength(1) + ",");
+                for (int j = 0; j < nn.ConvLayer.Kernel.GetLength(0); j++)
+                {
+                    for (int jj = 0; jj < nn.ConvLayer.Kernel.GetLength(1); jj++)
+                    {
+                        sw.Write(nn.ConvLayer.Kernel[j, jj] + ",");
+                    }
+                }
+            }
+            else { sw.Write("0,"); }
             sw.Write(nn.NumLayers + ",");
             for (int i = 0; i < nn.NumLayers; i++)
             {
@@ -138,7 +167,7 @@ namespace WGAN1
                     {
                         sw.Write(nn.Layers[i].Weights[j, jj] + ",");
                     }
-                    if (i != nn.NumLayers - 1) { sw.Write(nn.Layers[i].Biases[j]); }
+                    if (i != nn.NumLayers - 1) { sw.Write(nn.Layers[i].Biases[j] + ","); }
                 }
             }
             sw.Close();

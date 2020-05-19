@@ -15,7 +15,7 @@ namespace WGAN1
         public static int ConvXSize = 28 * 28;
         public Convolution ConvLayer { get; set; }
         public List<Layer> Layers { get; set; }
-        int ConvLayerPoint { get; set; }
+        public int ConvLayerPoint { get; set; }
         public double LearningRate { get; set; }
         public double ClippingParameter { get; set; }
         public double BatchSize { get; set; }
