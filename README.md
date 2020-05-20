@@ -1,6 +1,8 @@
 # MNIST-WGAN
-This project is currently in development, with work focused on the GAN aspect of things. It is planned to be a Weierstrass GAN upon completion, but this will occur sometime after the base type is completed. While presntly nonfunctional, I hope to have a beta out by May 21st.
-Some of the sources used:<br />
+This project is currently in development, with work focused on the GAN aspect of things. 
+It is planned to be a Weierstrass GAN upon completion, but this will occur sometime after the base type is completed. 
+While presntly nonfunctional, I hope to have a beta out by May 21st.
+Some of the sources used:
 Guide to convolution: https://arxiv.org/pdf/1603.07285.pdf;
 Extra info on partial convolution: https://arxiv.org/pdf/1804.07723.pdf;
 Partial convolution based padding: https://arxiv.org/pdf/1811.11718.pdf;
