@@ -40,7 +40,7 @@ namespace WGAN1
                 }
                 else
                 {
-                    nn.Layers.Add(new ConvolutionLayer(wcs[i], i == 0 ? inputsize : wcs[i - 1])
+                    nn.Layers.Add(new ConvolutionLayer(wcs[i], wcs[i])
                         .Init(false) as ConvolutionLayer);
                 }
             }
@@ -135,18 +135,14 @@ namespace WGAN1
                 {
                     var latentspace = Maths.RandomGaussian(LatentSize);
                     test = Generator.GenerateSample(latentspace);
-                    Critic.Layers[0].Calculate(test, false);
-                    for (int jj = 1; jj < Critic.NumLayers; jj++)
-                    {
-                        Critic.Layers[jj].Calculate(Critic.Layers[jj - 1].Values, jj == Critic.NumLayers - 1);
-                    }
+                    Critic.Calculate(test);
                     //Backprop critic layer
                     for (int jj = Critic.NumLayers - 1; jj >= 0; jj--)
                     {
                         //If an output layer
                         if (jj == Critic.NumLayers - 1)
                         { 
-                            Critic.Layers[Critic.NumLayers - 1].Backprop(-1); 
+                            Critic.Layers[Critic.NumLayers - 1].Backprop(1); 
                         }
                         else 
                         { 

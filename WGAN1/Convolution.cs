@@ -10,6 +10,7 @@ namespace WGAN1
     {
         //Kernel
         public double[,] Weights { get; set; }
+        public int[,] Mask { get; set; }
         public int Length { get; set; }
         public int InputLength { get; set; }
         double[,] RMSGrad { get; set; }
@@ -18,6 +19,7 @@ namespace WGAN1
         public double[] ZVals { get; set; }
         public double[] Values { get; set; }
         public double AvgUpdate { get; set; }
+        public int StepSize = 1;
 
         public ConvolutionLayer(int kernelsizex, int kernelsizey)
         {
@@ -67,7 +69,8 @@ namespace WGAN1
             {
                 for (int j = 0; j < InputLength; j++)
                 {
-                    Gradients[k, j] += input[j] * Maths.TanhDerriv(ZVals[k]) * Errors[k];
+                    //Errors[j]...?
+                    Gradients[k, j] += input[j] * Maths.TanhDerriv(ZVals[k]) * Errors[j];
                 }
             }
         }
@@ -84,20 +87,12 @@ namespace WGAN1
             if (l is FullyConnectedLayer)
             {
                 var fcl = l as FullyConnectedLayer;
-
-                //Dot product
-                Errors = new double[Length];
-                for (int x = 0; x < fcl.Length; x++)
-                {
-                    for (int y = 0; y < Length; y++)
-                    {
-                        Errors[y] += fcl.Weights[x, y] * Maths.TanhDerriv(fcl.Values[x]) * fcl.Errors[x];
-                    }
-                }
+                Errors = Maths.Convert(FullConvolve(Maths.Convert(fcl.Errors)));
             }
             else
             {
-                throw new Exception("Double conv layers not supported yet");
+                var cl = l as ConvolutionLayer;
+                Errors = Maths.Convert(FullConvolve(Maths.Convert(cl.Errors)));
             }
            
             /*
@@ -133,23 +128,86 @@ namespace WGAN1
         /// <returns></returns>
         public void Calculate(double[] input, bool isoutput)
         {
+            Calculate(Maths.Convert(input), isoutput);
+        }
+        /// <summary>
+        /// Partial convolution layer
+        /// </summary>
+        /// <param name="input"></param>
+        /// <param name="isoutput"></param>
+        public void Calculate(double[,] input, bool isoutput)
+        {
             if (Weights.GetLength(1) != InputLength) { throw new Exception("Invalid matrix sizes"); }
-            Values = new double[InputLength * InputLength];
-            //Dot product
-            for (int x = 0; x < Length; x++)
+            var output = Convolve(Pad(input));
+            ZVals = Maths.Convert(output);
+            if (!isoutput) { output = Maths.Tanh(output); }
+            Values = Maths.Convert(output);
+        }
+        public double[,] Convolve(double[,] input)
+        {
+            int KernelSize = Weights.GetLength(0);
+            int length = (input.GetLength(0) / StepSize) - KernelSize;
+            int width = (input.GetLength(1) / StepSize) - KernelSize;
+
+            double[,] output = new double[length, width];
+            for (int i = 0; i < length; i++)
             {
-                for (int y = 0; y < InputLength; y++)
+                for (int ii = 0; ii < width; ii++)
                 {
-                    //May be done incorrectly (output[y]..?)
-                    Values[x] += Weights[x, y] * input[y];
+                    for (int j = 0; j < KernelSize; j++)
+                    {
+                        for (int jj = 0; jj < KernelSize; jj++)
+                        {
+                            //Only add the value if it's an original value (Mask[_,_] != 0)
+                            if (Mask[(i * StepSize) + j, (ii * StepSize) + jj] == 0) { continue; }
+                            output[i, ii] += input[(i * StepSize) + j, (ii * StepSize) + jj] * Weights[j, jj];
+                        }
+                    }
                 }
             }
-            ZVals = Values;
-            if (!isoutput) { Values = Maths.Tanh(Values); }
+            return output;
         }
-        public void Calculate(double[,] input)
+        public double[,] FullConvolve(double[,] input)
         {
-            Calculate(Maths.Convert(input), false);
+            int KernelSize = Weights.GetLength(0);
+            int length = (input.GetLength(0) / StepSize);
+            int width = (input.GetLength(1) / StepSize);
+
+            double[,] output = new double[length, width];
+            for (int i = 0; i < length; i++)
+            {
+                for (int ii = 0; ii < width; ii++)
+                {
+                    for (int j = 0; j < KernelSize; j++)
+                    {
+                        for (int jj = 0; jj < KernelSize; jj++)
+                        {
+                            if (i + j >= length || ii + jj >= width) { continue; }
+                            output[i, ii] += input[(i * StepSize) + j, (ii * StepSize) + jj] * Weights[j, jj];
+                        }
+                    }
+                }
+            }
+            return output;
+        }
+        public double[,] Pad(double[,] input)
+        {
+            int inputxsize = input.GetLength(0);
+            int inputysize = input.GetLength(1);
+            int padxsize = Length - 1;
+            int padysize = InputLength - 1;
+
+            var output = new double[inputxsize + (2 * padxsize), inputysize + (2 * padysize)];
+            Mask = new int[inputxsize + (2 * padxsize), inputysize + (2 * padysize)];
+
+            for (int i = 0; i < inputxsize; i++)
+            {
+                for (int ii = 0; ii < inputysize; ii++)
+                {
+                    output[i + padxsize, ii + padysize] = input[i, ii]; Mask[i + padxsize, ii + padysize] = 1;
+                }
+            }
+            return output;
         }
     }
 }

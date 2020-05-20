@@ -10,11 +10,24 @@ namespace WGAN1
     {
         public static double[] Tanh(double[] input)
         {
+            var output = new double[input.Length];
             for (int i = 0; i < input.Length; i++)
             {
-                input[i] = Tanh(input[i]);
+                output[i] = Tanh(input[i]);
             }
-            return input;
+            return output;
+        }
+        public static double[,] Tanh(double[,] input)
+        {
+            var output = new double[input.GetLength(0), input.GetLength(1)];
+            for (int i = 0; i < input.GetLength(0); i++)
+            {
+                for (int ii = 0; ii < input.GetLength(1); ii++)
+                {
+                    output[i, ii] = Tanh(input[i, ii]);
+                }
+            }
+            return output;
         }
         public static double Tanh(double number)
         {

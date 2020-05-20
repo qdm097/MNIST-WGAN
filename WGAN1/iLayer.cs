@@ -10,6 +10,7 @@ namespace WGAN1
     {
         double[,] Weights { get; set; }
         double[] Values { get; set; }
+        double[] Errors { get; set; }
         int Length { get; set; }
         int InputLength { get; set; }
 
@@ -29,6 +30,6 @@ namespace WGAN1
         void Backprop(iLayer output);
         void Backprop(double correct);
         void Calculate(double[] input, bool output);
-        void Calculate(double[,] input);
+        void Calculate(double[,] input, bool output);
     }
 }

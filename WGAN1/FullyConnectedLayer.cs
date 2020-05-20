@@ -101,8 +101,8 @@ namespace WGAN1
         /// Descent for other layers
         /// </summary>
         /// <param name="input">Previous layer's values</param>
-        /// <param name="output">Whether the layer is the output layer</param>
-        public void Descend(double[] input, bool output)
+        /// <param name="isoutput">Whether the layer is the output layer</param>
+        public void Descend(double[] input, bool isoutput)
         {
             for (int i = 0; i < Length; i++)
             {
@@ -111,16 +111,17 @@ namespace WGAN1
                     //Weight gradients
                     WeightGradient[i, ii] = input[ii] * Maths.TanhDerriv(Values[i]) * Errors[i];
                 }
-                if (output) { continue; }
+                if (isoutput) { continue; }
                 //Bias gradients
                 BiasGradient[i] = Maths.TanhDerriv(Values[i]) * Errors[i];
             }
         }
-        public void Backprop(iLayer output)
+        public void Backprop(iLayer outputlayer)
         {
-            if (output is FullyConnectedLayer)
+            
+            if (outputlayer is FullyConnectedLayer)
             {
-                var FCLOutput = output as FullyConnectedLayer;
+                var FCLOutput = outputlayer as FullyConnectedLayer;
                 Errors = new double[Length];
                 for (int k = 0; k < FCLOutput.Length; k++)
                 {
@@ -132,15 +133,14 @@ namespace WGAN1
             }
             else
             {
-                var CLOutput = output as ConvolutionLayer;
+                var cl = outputlayer as ConvolutionLayer;
                 Errors = new double[Length];
-                //Dot product
-                for (int x = 0; x < CLOutput.Length; x++)
+                var weights = Maths.Convert(cl.Weights);
+                for (int k = 0; k < weights.Length; k++)
                 {
-                    for (int y = 0; y < Length; y++)
+                    for (int j = 0; j < Length; j++)
                     {
-                        //May be done incorrectly (output[y]..?)
-                        Errors[y] += CLOutput.Weights[x, y] * Maths.TanhDerriv(CLOutput.ZVals[x]) * CLOutput.Errors[x];
+                        Errors[j] += weights[k] * Maths.TanhDerriv(outputlayer.Values[j]) * outputlayer.Errors[j];
                     }
                 }
             }
@@ -169,9 +169,9 @@ namespace WGAN1
             }
             if (!output) { Values = Maths.Tanh(Values); }
         }
-        public void Calculate(double[,] input)
+        public void Calculate(double[,] input, bool output)
         {
-            Calculate(Maths.Convert(input), false);
+            Calculate(Maths.Convert(input), output);
         }
     }
 }

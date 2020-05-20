@@ -10,15 +10,18 @@ namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        double learningrate = 0.0000146;
-        double rmsdecay = 0.7;
-        double clippingparameter = 1;
+        double learningrate = 0.00005;
+        double rmsdecay = 0.8;
+        double clippingparameter = .01;
         int batchsize = 5;
         int ctogratio = 5;
-        int generatorlcount = 5;
-        int gncount = 28;
-        int criticlcount = 5;
+        int generatorlcount = 4;
+        int gncount = 25;
+        int criticlcount = 3;
         int cncount = 30;
+        //Manually setting the c-layer's position and kernel size for now
+        int kernelsize = 4;
+        int convpoint = 2;
         bool dt;
         public bool DoneTraining { get { return dt; } set { dt = value; if (dt) { TrainBtn.Enabled = true; dt = false; } } }
         string cs;
@@ -46,7 +49,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(true, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
+                NN.Train(false, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
                     GenerateCounts(generatorlcount, gncount, false), GenerateTypes(generatorlcount, false), 
                     GenerateTypes(criticlcount, true), 28, learningrate, clippingparameter, batchsize, ctogratio,
                     rmsdecay, 7, 28, this, 0);               
@@ -65,7 +68,7 @@ namespace WGAN1
             for (int i = 0; i < numlayers; i++)
             {
                 //Layers don't have to be inititalized because they're just a list of types
-                if (!cog && i == 3) { list.Add(new ConvolutionLayer(0, 0)); }
+                if (!cog && i == convpoint) { list.Add(new ConvolutionLayer(0, 0)); }
                 else { list.Add(new FullyConnectedLayer(0, 0)); }
             }
             return list;
@@ -78,7 +81,7 @@ namespace WGAN1
                 //Critic output layer has 1 neuron
                 if (cog && i == layercount - 1) { output.Add(1); continue; }
                 //Manually setting the c-layer's position and kernel size for now
-                if (i == 3) { output.Add(100); continue; }
+                if (i == convpoint) { output.Add(kernelsize); continue; }
                 //Generator layer has 28 * 28 neurons (if not a c-layer)
                 if (!cog && i == layercount - 1) { output.Add(28 * 28); continue; }
                 output.Add(nperlayer); 
@@ -116,7 +119,7 @@ namespace WGAN1
         }
         private void ClipTxt_TextChanged(object sender, EventArgs e)
         {
-            if (!int.TryParse(ClipTxt.Text, out int clippar)) { MessageBox.Show("NAN"); return; }
+            if (!double.TryParse(ClipTxt.Text, out double clippar)) { MessageBox.Show("NAN"); return; }
             if (clippar <= 0 || clippar > 10) { MessageBox.Show("The clipping parameter must be between 0 and 10"); return; }
             clippingparameter = clippar;
         }
