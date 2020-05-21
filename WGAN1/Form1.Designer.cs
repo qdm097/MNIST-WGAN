@@ -43,6 +43,7 @@
             this.label6 = new System.Windows.Forms.Label();
             this.CScoreTxt = new System.Windows.Forms.TextBox();
             this.ClearBtn = new System.Windows.Forms.Button();
+            this.ResetBtn = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.NumPB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -124,9 +125,9 @@
             // 
             // TrainBtn
             // 
-            this.TrainBtn.Location = new System.Drawing.Point(166, 492);
+            this.TrainBtn.Location = new System.Drawing.Point(166, 506);
             this.TrainBtn.Name = "TrainBtn";
-            this.TrainBtn.Size = new System.Drawing.Size(142, 35);
+            this.TrainBtn.Size = new System.Drawing.Size(142, 45);
             this.TrainBtn.TabIndex = 9;
             this.TrainBtn.Text = "Train";
             this.TrainBtn.UseVisualStyleBackColor = true;
@@ -152,7 +153,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(161, 575);
+            this.label6.Location = new System.Drawing.Point(161, 583);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(128, 25);
             this.label6.TabIndex = 13;
@@ -160,7 +161,7 @@
             // 
             // CScoreTxt
             // 
-            this.CScoreTxt.Location = new System.Drawing.Point(166, 603);
+            this.CScoreTxt.Location = new System.Drawing.Point(166, 611);
             this.CScoreTxt.Name = "CScoreTxt";
             this.CScoreTxt.ReadOnly = true;
             this.CScoreTxt.Size = new System.Drawing.Size(142, 31);
@@ -168,19 +169,30 @@
             // 
             // ClearBtn
             // 
-            this.ClearBtn.Location = new System.Drawing.Point(166, 640);
+            this.ClearBtn.Location = new System.Drawing.Point(90, 659);
             this.ClearBtn.Name = "ClearBtn";
-            this.ClearBtn.Size = new System.Drawing.Size(142, 35);
+            this.ClearBtn.Size = new System.Drawing.Size(142, 45);
             this.ClearBtn.TabIndex = 14;
             this.ClearBtn.Text = "Clear";
             this.ClearBtn.UseVisualStyleBackColor = true;
             this.ClearBtn.Click += new System.EventHandler(this.ClearBtn_Click);
+            // 
+            // ResetBtn
+            // 
+            this.ResetBtn.Location = new System.Drawing.Point(238, 659);
+            this.ResetBtn.Name = "ResetBtn";
+            this.ResetBtn.Size = new System.Drawing.Size(142, 45);
+            this.ResetBtn.TabIndex = 15;
+            this.ResetBtn.Text = "Reset NN";
+            this.ResetBtn.UseVisualStyleBackColor = true;
+            this.ResetBtn.Click += new System.EventHandler(this.ResetBtn_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1189, 760);
+            this.Controls.Add(this.ResetBtn);
             this.Controls.Add(this.ClearBtn);
             this.Controls.Add(this.label6);
             this.Controls.Add(this.CScoreTxt);
@@ -221,6 +233,7 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.TextBox CScoreTxt;
         private System.Windows.Forms.Button ClearBtn;
+        private System.Windows.Forms.Button ResetBtn;
     }
 }
 

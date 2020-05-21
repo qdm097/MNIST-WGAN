@@ -11,8 +11,8 @@ namespace WGAN1
     public partial class Form1 : Form
     {
         double learningrate = 0.00005;
-        double rmsdecay = 0.8;
-        double clippingparameter = .01;
+        double rmsdecay = 0.7;
+        double clippingparameter = .1;
         int batchsize = 5;
         int ctogratio = 5;
         int gncount = 25;
@@ -54,11 +54,22 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(false, GenerateLayers(false), GenerateLayers(true), latentsize, resolution, 
+                NN.Train(true, GenerateLayers(false), GenerateLayers(true), latentsize, resolution, 
                     learningrate, clippingparameter, batchsize, ctogratio, rmsdecay, 7, this, 0);               
             });
             thread.IsBackground = true;
             thread.Start();
+        }
+        private void ResetBtn_Click(object sender, EventArgs e)
+        {
+            if (NN.Training) { NN.Save = false; NN.Training = false; TrainBtn.Enabled = false; }
+
+            //No, I don't know why the io does COG backwards, don't ask. It's too late to change now.
+
+            //Generator
+            IO.Write(new NN().SetHyperParams(learningrate, 99).Init(GenerateLayers(false), false), true);
+            //Critic
+            IO.Write(new NN().SetHyperParams(learningrate, clippingparameter).Init(GenerateLayers(true), true), false);
         }
         List<iLayer> GenerateLayers(bool cog)
         {
@@ -86,40 +97,6 @@ namespace WGAN1
             }
             return layers;
         }
-        /*
-        /// <summary>
-        /// For now I'm manually setting the conv layer points
-        /// </summary>
-        /// <param name="numlayers">How many layers are in the network</param>
-        /// <returns></returns>
-        List<iLayer> GenerateTypes(int numlayers, bool cog)
-        {
-            var list = new List<iLayer>();
-            for (int i = 0; i < numlayers; i++)
-            {
-                //Layers don't have to be inititalized because they're just a list of types
-                if (!cog && i == convpoint) { list.Add(new ConvolutionLayer(0, 0)); }
-                else { list.Add(new FullyConnectedLayer(0, 0)); }
-            }
-            return list;
-        }
-        private List<int> GenerateCounts(int layercount, int nperlayer, bool cog)
-        {
-            var output = new List<int>();
-            for (int i = 0; i < layercount; i++)
-            {
-                //Critic output layer has 1 neuron
-                if (cog && i == layercount - 1) { output.Add(1); continue; }
-                //Manually setting the c-layer's position and kernel size for now
-                if (i == convpoint) { output.Add(kernelsize); continue; }
-                //Generator layer has 28 * 28 neurons (if not a c-layer)
-                if (!cog && i == layercount - 1) { output.Add(28 * 28); continue; }
-                output.Add(nperlayer); 
-            }
-
-            return output;
-        }
-        */
         private void AlphaTxt_TextChanged(object sender, EventArgs e)
         {
             if (!double.TryParse(AlphaTxt.Text, out double lr)) { MessageBox.Show("NAN"); return; }
@@ -155,7 +132,7 @@ namespace WGAN1
         }
         private void ClearBtn_Click(object sender, EventArgs e)
         {
-            NN.Clear = true;
+            NN.Clear = true; CScore = null;
         }
         public int[,] Scaler(int[,] input, int scale)
         {

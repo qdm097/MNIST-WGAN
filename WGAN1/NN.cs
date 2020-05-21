@@ -16,6 +16,7 @@ namespace WGAN1
         public double BatchSize { get; set; }
         public static bool Training = false;
         public static bool Clear = false;
+        public static bool Save = true;
         int Trials = 0;
         public double PercCorrect = 0;
 
@@ -178,10 +179,19 @@ namespace WGAN1
                 }
                 imgupdateiterator++;
             }
-            activeform.Invoke((Action)delegate { activeform.DoneTraining = true; });
-            //Save nns
-            IO.Write(Generator, true);
-            IO.Write(Critic, false);
+            if (Save)
+            {
+                //Save nns
+                IO.Write(Generator, true);
+                IO.Write(Critic, false);
+            }
+            activeform.Invoke((Action)delegate
+            {
+                //Notify of being done training
+                activeform.DoneTraining = true;
+                //Reset errors
+                activeform.CScore = null;
+            });
         }
         public void Calculate(double[] input)
         {
