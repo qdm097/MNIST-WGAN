@@ -11,6 +11,7 @@ namespace WGAN1
         public int Length { get; set; }
         public int InputLength { get; set; }
         public double[] Values { get; set; }
+        public double[] ZVals { get; set; }
         public double[] Errors { get; set; }
         public double[,] Weights { get; set; }
         public double[] Biases { get; set; }
@@ -87,17 +88,6 @@ namespace WGAN1
             BiasGradient = new double[Length];
         }
         /// <summary>
-        /// Descent for the first layer
-        /// </summary>
-        /// <param name="input">Original image (optionally normalized)</param>
-        public void Descend(double[,] input)
-        {
-            double[] input2 = new double[input.Length];
-            int iterator = 0;
-            foreach (double d in input) { input2[iterator] = d; iterator++; }
-            Descend(input2, false);
-        }
-        /// <summary>
         /// Descent for other layers
         /// </summary>
         /// <param name="input">Previous layer's values</param>
@@ -109,16 +99,27 @@ namespace WGAN1
                 for (int ii = 0; ii < InputLength; ii++)
                 {
                     //Weight gradients
-                    WeightGradient[i, ii] = input[ii] * Maths.TanhDerriv(Values[i]) * Errors[i];
+                    WeightGradient[i, ii] += input[ii] * Maths.TanhDerriv(Values[i]) * Errors[i];
                 }
                 if (isoutput) { continue; }
                 //Bias gradients
-                BiasGradient[i] = Maths.TanhDerriv(Values[i]) * Errors[i];
+                BiasGradient[i] += Errors[i];
             }
         }
+        /// <summary>
+        /// I used the following intuition to work out this method of backpropegation, 
+        /// because I could not find an explanation anywhere online:
+        /// "Error is how much you're wrong, adjusted for how much your superior cares and how much he's wrong"
+        /// I then realized that this applies to convolution as much as it does normally.
+        /// So that means the error, with respect to any given input value, is defined the same as normally.
+        /// In other words, <i>you can use the same formula as normal, but calculate it with convolution</i>
+        /// This is done like so: "Error += output.weight * output.error * tanhderriv(output.zval)"
+        /// With respect to the given indices: i, ii, j, jj.
+        /// All adjusted for convolution, demonstraighted below.
+        /// </summary>
+        /// <param name="outputlayer"></param>
         public void Backprop(iLayer outputlayer)
-        {
-            
+        {            
             if (outputlayer is FullyConnectedLayer)
             {
                 var FCLOutput = outputlayer as FullyConnectedLayer;
@@ -127,23 +128,40 @@ namespace WGAN1
                 {
                     for (int j = 0; j < Length; j++)
                     {
-                        Errors[j] += FCLOutput.Weights[k, j] * Maths.TanhDerriv(FCLOutput.Values[k]) * FCLOutput.Errors[k];
+                        Errors[j] += FCLOutput.Weights[k, j] * Maths.TanhDerriv(FCLOutput.ZVals[k]) * FCLOutput.Errors[k];
                     }
                 }
             }
             else
             {
-                var cl = outputlayer as ConvolutionLayer;
-                Errors = new double[Length];
-                var weights = Maths.Convert(cl.Weights);
-                for (int k = 0; k < weights.Length; k++)
+                var ocl = outputlayer as ConvolutionLayer;
+                var sidelength = (int)Math.Sqrt(Length);
+                int length = (sidelength / ConvolutionLayer.StepSize) - ocl.KernelSize + 1;
+                int width = (sidelength / ConvolutionLayer.StepSize) - ocl.KernelSize + 1;
+                int ss = ConvolutionLayer.StepSize;
+
+                var oclerrors = Maths.Convert(ocl.Errors);
+                var inputvalues = Maths.Convert(Values);
+
+                double[,] errors = new double[sidelength, sidelength];
+                for (int i = 0; i < length; i++)
                 {
-                    for (int j = 0; j < Length; j++)
+                    for (int ii = 0; ii < width; ii++)
                     {
-                        Errors[j] += weights[k] * Maths.TanhDerriv(outputlayer.Values[j]) * outputlayer.Errors[j];
+                        for (int j = 0; j < ocl.KernelSize; j += ss)
+                        {
+                            for (int jj = 0; jj < ocl.KernelSize; jj += ss)
+                            {
+                                //Error += weight * error * tanhderriv(zval)
+                                errors[(i * ss) + j, (ii * ss) + jj] += ocl.Weights[j, jj] * oclerrors[j, jj] 
+                                    * Maths.TanhDerriv(ocl.Weights[j, jj] * inputvalues[(i * ss) + j, (ii * ss) + jj]);
+                            }
+                        }
                     }
                 }
+                Errors = Maths.Convert(errors);
             }
+            
         }
         public void Backprop(double correct)
         {
@@ -155,19 +173,21 @@ namespace WGAN1
         }
         public void Calculate(double[] input, bool output)
         {
-            Values = new double[Length];
+            var vals = new double[Length];
             for (int k = 0; k < Length; k++)
             {
                 for (int j = 0; j < InputLength; j++)
                 {
-                    Values[k] += Weights[k, j] * input[j];
+                    vals[k] += Weights[k, j] * input[j];
                 }
                 if (!output)
                 {
-                    Values[k] += Biases[k];
+                    vals[k] += Biases[k];
                 }
             }
-            if (!output) { Values = Maths.Tanh(Values); }
+            ZVals = vals;
+            if (!output) { Values = Maths.Tanh(vals); }
+            else { Values = vals; }
         }
         public void Calculate(double[,] input, bool output)
         {

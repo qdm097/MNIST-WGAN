@@ -15,13 +15,18 @@ namespace WGAN1
         double clippingparameter = .01;
         int batchsize = 5;
         int ctogratio = 5;
-        int generatorlcount = 4;
         int gncount = 25;
-        int criticlcount = 3;
-        int cncount = 30;
+        int cncount = 25;
+        //True is convlayer false is fullyconnected layer
+        //DO NOT have a convolution layer be the last unless you calculate its output size (MUST BE 28*28)
+        List<bool> gLayerTypes = new List<bool>() { false, true, true, false };
+        List<bool> cLayerTypes = new List<bool>() { true, false, true, false };
         //Manually setting the c-layer's position and kernel size for now
-        int kernelsize = 4;
-        int convpoint = 2;
+        //Kernel size is length NOT getlength(0)
+        //Kernel size MUST be a perfect square because of this
+        int kernelsize = 9;
+        int resolution = 28;
+        int latentsize = 28;
         bool dt;
         public bool DoneTraining { get { return dt; } set { dt = value; if (dt) { TrainBtn.Enabled = true; dt = false; } } }
         string cs;
@@ -49,14 +54,39 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(false, criticlcount, generatorlcount, GenerateCounts(criticlcount, cncount, true),
-                    GenerateCounts(generatorlcount, gncount, false), GenerateTypes(generatorlcount, false), 
-                    GenerateTypes(criticlcount, true), 28, learningrate, clippingparameter, batchsize, ctogratio,
-                    rmsdecay, 7, 28, this, 0);               
+                NN.Train(false, GenerateLayers(false), GenerateLayers(true), latentsize, resolution, 
+                    learningrate, clippingparameter, batchsize, ctogratio, rmsdecay, 7, this, 0);               
             });
             thread.IsBackground = true;
             thread.Start();
         }
+        List<iLayer> GenerateLayers(bool cog)
+        {
+            List<bool> layertypes = cog ? cLayerTypes : gLayerTypes;
+            int layercount = layertypes.Count;
+            int ncount = cog ? cncount : gncount;
+            List<iLayer> layers = new List<iLayer>();
+            int priorsize = cog ? resolution * resolution : latentsize;
+            for (int i = 0; i < layercount; i++)
+            {
+                if (i == layercount - 1) { ncount = cog ? 1 : 28 * 28; }
+                if (layertypes[i])
+                {
+                    layers.Add(new ConvolutionLayer(kernelsize, priorsize));
+                    //Calculate the padded matrix size (if applicable)
+                    int temp = cog ? (int)Math.Sqrt(kernelsize) : (int)(((2 * Math.Sqrt(kernelsize)) - 1) + Math.Sqrt(priorsize));
+                    priorsize = (int)((Math.Sqrt(priorsize) / ConvolutionLayer.StepSize) - temp);
+                    priorsize *= priorsize;
+                }
+                else
+                {
+                    layers.Add(new FullyConnectedLayer(ncount, priorsize));
+                    priorsize = ncount;
+                }
+            }
+            return layers;
+        }
+        /*
         /// <summary>
         /// For now I'm manually setting the conv layer points
         /// </summary>
@@ -89,7 +119,7 @@ namespace WGAN1
 
             return output;
         }
-
+        */
         private void AlphaTxt_TextChanged(object sender, EventArgs e)
         {
             if (!double.TryParse(AlphaTxt.Text, out double lr)) { MessageBox.Show("NAN"); return; }

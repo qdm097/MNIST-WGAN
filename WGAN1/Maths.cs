@@ -17,6 +17,15 @@ namespace WGAN1
             }
             return output;
         }
+        public static double[] TanhDerriv(double[] input)
+        {
+            var output = new double[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                output[i] = TanhDerriv(input[i]);
+            }
+            return output;
+        }
         public static double[,] Tanh(double[,] input)
         {
             var output = new double[input.GetLength(0), input.GetLength(1)];
@@ -59,14 +68,13 @@ namespace WGAN1
         /// </summary>
         /// <param name="latentsize">The square root of the size of the latent space</param>
         /// <returns></returns>
-        public static double[] RandomGaussian(int latentsize)
+        public static double[] RandomGaussian(Random r, int latentsize)
         {
             var latentspace = new double[latentsize];
-            Random rand = new Random(); //Reuse this if you are generating many
             for (int i = 0; i < latentsize; i++)
             {
-                double u1 = 1.0 - rand.NextDouble(); //Uniform(0,1] random doubles
-                double u2 = 1.0 - rand.NextDouble();
+                double u1 = 1.0 - r.NextDouble(); //Uniform(0,1] random doubles
+                double u2 = 1.0 - r.NextDouble();
                 //Unscaled
                 latentspace[i] = Math.Sqrt(-2.0 * Math.Log(u1)) *
                              Math.Sin(2.0 * Math.PI * u2); //Random normal(0,1)

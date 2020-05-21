@@ -10,17 +10,13 @@ namespace WGAN1
     {
         double[,] Weights { get; set; }
         double[] Values { get; set; }
+        double[] ZVals { get; set; }
         double[] Errors { get; set; }
         int Length { get; set; }
         int InputLength { get; set; }
 
         iLayer Init(bool isoutput);
         void Descend(int batchsize, double learningrate, double clipparameter, double RMSDecay);
-        /// <summary>
-        /// Descent for the first layer
-        /// </summary>
-        /// <param name="input">Original image (optionally normalized)</param>
-        void Descend(double[,] input);
         /// <summary>
         /// Descent for other layers
         /// </summary>

@@ -113,9 +113,9 @@ namespace WGAN1
                 if (fclORcl) { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); }
                 else { nn.Layers.Add(new ConvolutionLayer(LayerCount, InputLayerCount)); }
 
-                for (int j = 0; j < nn.Layers[i].Length; j++)
+                for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
-                    for (int jj = 0; jj < nn.Layers[i].InputLength; jj++)
+                    for (int jj = 0; jj < nn.Layers[i].Weights.GetLength(1); jj++)
                     {
                         nn.Layers[i].Weights[j, jj] = double.Parse(text[iterator]); iterator++;
                     }
@@ -138,9 +138,9 @@ namespace WGAN1
             {
                 sw.Write((nn.Layers[i] is FullyConnectedLayer ? 0 : 1) + "," 
                     + nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ",");
-                for (int j = 0; j < nn.Layers[i].Length; j++)
+                for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
-                    for (int jj = 0; jj < nn.Layers[i].InputLength; jj++)
+                    for (int jj = 0; jj < nn.Layers[i].Weights.GetLength(1); jj++)
                     {
                         sw.Write(nn.Layers[i].Weights[j, jj] + ",");
                     }
