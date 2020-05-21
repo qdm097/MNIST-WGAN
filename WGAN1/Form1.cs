@@ -10,23 +10,24 @@ namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        double learningrate = 0.00005;
+        double learningrate = 0.0001;
         double rmsdecay = 0.7;
-        double clippingparameter = .1;
-        int batchsize = 5;
+        double clippingparameter = 1;
+        int batchsize = 1;
         int ctogratio = 5;
         int gncount = 25;
         int cncount = 25;
+        int imgspeed = 5;
         //True is convlayer false is fullyconnected layer
         //DO NOT have a convolution layer be the last unless you calculate its output size (MUST BE 28*28)
-        List<bool> gLayerTypes = new List<bool>() { false, true, true, false };
-        List<bool> cLayerTypes = new List<bool>() { true, false, true, false };
+        List<bool> gLayerTypes = new List<bool>() { true, true, true, false };
+        List<bool> cLayerTypes = new List<bool>() { true, true, false, false };
         //Manually setting the c-layer's position and kernel size for now
         //Kernel size is length NOT getlength(0)
         //Kernel size MUST be a perfect square because of this
         int kernelsize = 9;
         int resolution = 28;
-        int latentsize = 28;
+        int latentsize = 25;
         bool dt;
         public bool DoneTraining { get { return dt; } set { dt = value; if (dt) { TrainBtn.Enabled = true; dt = false; } } }
         string cs;
@@ -55,7 +56,7 @@ namespace WGAN1
             var thread = new Thread(() => 
             {
                 NN.Train(true, GenerateLayers(false), GenerateLayers(true), latentsize, resolution, 
-                    learningrate, clippingparameter, batchsize, ctogratio, rmsdecay, 7, this, 0);               
+                    learningrate, clippingparameter, batchsize, ctogratio, rmsdecay, 7, this, imgspeed);               
             });
             thread.IsBackground = true;
             thread.Start();
@@ -85,8 +86,8 @@ namespace WGAN1
                 {
                     layers.Add(new ConvolutionLayer(kernelsize, priorsize));
                     //Calculate the padded matrix size (if applicable)
-                    int temp = cog ? (int)Math.Sqrt(kernelsize) : (int)(((2 * Math.Sqrt(kernelsize)) - 1) + Math.Sqrt(priorsize));
-                    priorsize = (int)((Math.Sqrt(priorsize) / ConvolutionLayer.StepSize) - temp);
+                    int temp = cog ? (int)Math.Sqrt(priorsize) : (int)(Math.Sqrt(priorsize) + (2 * (Math.Sqrt(kernelsize) - 1)));
+                    priorsize = (int)((temp / ConvolutionLayer.StepSize) - Math.Sqrt(kernelsize) + 1);
                     priorsize *= priorsize;
                 }
                 else

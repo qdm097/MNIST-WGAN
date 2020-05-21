@@ -87,7 +87,7 @@ namespace WGAN1
             Random r = new Random();
             //What values are correct in the critic
             double realanswer = 1;
-            double fakeanswer = 0;
+            double fakeanswer = -1;
 
             while (Training)
             {
@@ -105,6 +105,7 @@ namespace WGAN1
                         realsamples.Add(IO.FindNextNumber(num));
                     }
                     double overallscore = 0;
+                    //Values for manual verification
                     List<double> rscores = new List<double>();
                     List<double> fscores = new List<double>();
                     for (int j = 0; j < m; j++)
