@@ -1,3 +1,5 @@
 # MNIST-WGAN
 This project is currently in development, with work focused on the GAN aspect of things. It is planned to be a Weierstrass GAN upon completion, but this will occur sometime after the base type is completed. 
-While presntly nonfunctional, I hope to have a beta out by May 21st (though this is looking unlikely).
+While it's not quite beta ready, it <i>might</i> now be working. It generated a single line!:
+![A single line](https://lh3.googleusercontent.com/2XTkXouFbyJ3QimCIU6lSzdvfPcTjnQB92yFgDy-kpQHevxzRNyDWTZmomreU6JJUEFGQkPQdMp5s33qNNK5bcZ2ePoQFAPz7SkAKYqKOr_yBcS0DU4TKy4yxy4RZpIkwPotIotW2w7Q3RajgQRb_POl_JzfKA61O2v8NxWxpfeaUCt0AaS8Yj6spTYRjR7GvCgcQhnc20sS7h3fKaNUZBB9rCGvEhoYQi-sdSBSjcBa_Oa2ECXseHZfpMW3OYh1a1cMMh69qbXyiHgMmbtnF42a8UZNCEWen3DKSDtgiEtteO7wAAFAjcsK0g9lctGnChShS0VYu8CAULZM3VjQC2DryfWY08wmIvjYJkvY1DCJbkljmNUX1vJRW1vWSCS1yc5pJlJ782S6SXQ9ssYEwgkEkKoAAkt7ZepMfgs1k3EaIh6JSVeif1Tms8Yo6DsUioLWoTxUjS_aQlzz7pgqjHGMF6wv6DwJyYcBzylTSniE4tkOOWDIuhVtMArbEirQ1u4M4cFEpISisEfB6lJzesKhwkcroX7mU_QG6gqFbar6ymcdwv5fMRu_5tpcwbEmP02a8Nc8xvybywUg3NKyJgnVXaNvN-SlWuznqt8OGLQJ-fnCE0KByKVGbi7ygZAnMzPFVKHR2RYfnvrBEm03E8SOe7SmveVjE1RfyoGezeqERskfjHx_vL2o58sGgg=w2037-h1417-no?authuser=0)
+(Yes, that is a picture of my screen, I was excited)
