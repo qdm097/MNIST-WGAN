@@ -203,8 +203,8 @@ namespace WGAN1
             if (Save)
             {
                 //Save nns
-                IO.Write(Generator, true);
-                IO.Write(Critic, false);
+                IO.Write(Generator, false);
+                IO.Write(Critic, true);
             }
             activeform.Invoke((Action)delegate
             {

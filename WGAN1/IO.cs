@@ -13,7 +13,7 @@ namespace WGAN1
         public static bool LabelReaderRunning = false;
         public static bool ImageReaderRunning = false;
         static readonly string GWBPath = Directory.GetParent(Environment.CurrentDirectory).Parent.FullName + "\\GeneratorWBs.txt";
-        static readonly string DWBPath = Directory.GetParent(Environment.CurrentDirectory).Parent.FullName + "\\DiscriminatorWBs.txt";
+        static readonly string CWBPath = Directory.GetParent(Environment.CurrentDirectory).Parent.FullName + "\\DiscriminatorWBs.txt";
         static readonly string TrainImagePath = Directory.GetParent(Environment.CurrentDirectory).Parent.FullName + "\\train-images.idx3-ubyte";
         static readonly string TrainLabelPath = Directory.GetParent(Environment.CurrentDirectory).Parent.FullName + "\\train-labels.idx1-ubyte";
         static readonly string TestLabelPath = Directory.GetParent(Environment.CurrentDirectory).Parent.FullName + "\\test-labels.idx1-ubyte";
@@ -90,14 +90,14 @@ namespace WGAN1
         /// <summary>
         /// Returns a NN from a file
         /// </summary>
-        /// <param name="GorD">Whether the NN is the generator (true) or discriminator (false)</param>
+        /// <param name="COG">[C]ritic [O]r [G]enerator</param>
         /// <returns></returns>
-        public static NN Read(bool GorD)
+        public static NN Read(bool COG)
         {
             NN nn = new NN();
             nn.Layers = new List<iLayer>();
             string[] text;
-            using (StreamReader sr = File.OpenText(GorD ? DWBPath : GWBPath))
+            using (StreamReader sr = File.OpenText(COG ? CWBPath : GWBPath))
             {
                 text = sr.ReadToEnd().Split(',');
             }
@@ -110,7 +110,11 @@ namespace WGAN1
                 int InputLayerCount = int.Parse(text[iterator]); iterator++;
 
                 if (fclORcl) { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); }
-                else { nn.Layers.Add(new ConvolutionLayer(LayerCount, InputLayerCount)); }
+                else 
+                { 
+                    nn.Layers.Add(new ConvolutionLayer(LayerCount, InputLayerCount)); 
+                    (nn.Layers[i] as ConvolutionLayer).COG = COG;
+                }
 
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
@@ -128,10 +132,10 @@ namespace WGAN1
         /// Saves a specified NN to a file
         /// </summary>
         /// <param name="nn">The specified NN</param>
-        /// <param name="GorD">Whether the NN is the generator (true) or discriminator (false)</param>
-        public static void Write(NN nn, bool GorD)
+        /// <param name="COG">[C]ritic [O]r [G]enerator</param>
+        public static void Write(NN nn, bool COG)
         {
-            StreamWriter sw = new StreamWriter(new FileStream(GorD ? GWBPath : DWBPath, FileMode.Create, FileAccess.Write, FileShare.None));
+            StreamWriter sw = new StreamWriter(new FileStream(COG ? CWBPath : GWBPath, FileMode.Create, FileAccess.Write, FileShare.None));
             sw.Write(nn.NumLayers + ",");
             for (int i = 0; i < nn.NumLayers; i++)
             {

@@ -10,22 +10,22 @@ namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        double learningrate = 0.00005;
-        double rmsdecay = 0.4;
+        double learningrate = 0.0001;
+        double rmsdecay = 0.6;
         double clippingparameter = 1;
-        int batchsize = 1;
-        int ctogratio = 15;
+        int batchsize = 5;
+        int ctogratio = 5;
         int gncount = 25;
         int cncount = 25;
         int imgspeed = 0;
         //True is convlayer false is fullyconnected layer
         //DO NOT have a convolution layer be the last unless you calculate its output size (MUST BE 28*28)
-        List<bool> gLayerTypes = new List<bool>() { false, false, true, true, true, false };
-        List<bool> cLayerTypes = new List<bool>() { true, true, true, false, false };
+        List<bool> gLayerTypes = new List<bool>() { false, true, true, true, false };
+        List<bool> cLayerTypes = new List<bool>() { true, false, true, false };
         //Manually setting the c-layer's position and kernel size for now
         //Kernel size is length NOT getlength(0)
         //Kernel size MUST be a perfect square because of this
-        int kernelsize = 9;
+        int kernelsize = 4;
         int resolution = 28;
         int latentsize = 25;
         //The maximum RMSE allowed before the network stops learning
@@ -58,7 +58,7 @@ namespace WGAN1
             var thread = new Thread(() => 
             {
                 NN.Train(true, GenerateLayers(false), GenerateLayers(true), latentsize, resolution, 
-                    learningrate, clippingparameter, batchsize, ctogratio, rmsdecay, 7, this, imgspeed);               
+                    learningrate, clippingparameter, batchsize, ctogratio, rmsdecay, 1, this, imgspeed);               
             });
             thread.IsBackground = true;
             thread.Start();
@@ -66,13 +66,10 @@ namespace WGAN1
         private void ResetBtn_Click(object sender, EventArgs e)
         {
             if (NN.Training) { NN.Save = false; NN.Training = false; TrainBtn.Enabled = false; }
-
-            //No, I don't know why the io does COG backwards, don't ask. It's too late to change now.
-
             //Generator
-            IO.Write(new NN().SetHyperParams(learningrate, 99).Init(GenerateLayers(false), false), true);
+            IO.Write(new NN().SetHyperParams(learningrate, 99).Init(GenerateLayers(false), false), false);
             //Critic
-            IO.Write(new NN().SetHyperParams(learningrate, clippingparameter).Init(GenerateLayers(true), true), false);
+            IO.Write(new NN().SetHyperParams(learningrate, clippingparameter).Init(GenerateLayers(true), true), true);
         }
         List<iLayer> GenerateLayers(bool cog)
         {
