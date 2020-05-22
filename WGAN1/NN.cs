@@ -18,7 +18,7 @@ namespace WGAN1
         public static bool Clear = false;
         public static bool Save = true;
         int Trials = 0;
-        public double PercCorrect = 0;
+        public double Error = 0;
 
         /// <summary>
         /// Generates a new NN with the specified parameters (using LeCun initialization)
@@ -123,11 +123,11 @@ namespace WGAN1
                         overallscore += Math.Pow((Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] - fakeanswer, 2);
                         fscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[0]);
                     }
-                    if (Clear) { Critic.Trials = 0; Critic.PercCorrect = 0; Clear = false; }
+                    if (Clear) { Critic.Trials = 0; Critic.Error = 0; Clear = false; }
                     overallscore /= m;
                     overallscore = Math.Sqrt(overallscore);
                     double ratio = (double)Critic.Trials / (Critic.Trials + 1);
-                    Critic.PercCorrect = (ratio * Critic.PercCorrect) + ((1 - ratio) * overallscore);
+                    Critic.Error = (ratio * Critic.Error) + ((1 - ratio) * overallscore);
                     Critic.Trials++;
                     //Update WBs
                     Critic.Update(m, a, c, rmsd);
@@ -174,7 +174,8 @@ namespace WGAN1
                     activeform.Invoke((Action)delegate
                     {
                         activeform.image = image; 
-                        activeform.CScore = Critic.PercCorrect.ToString(); 
+                        activeform.CScore = Critic.Error.ToString(); 
+                        if (Critic.Error > Form1.Cutoff) { Training = false; }
                     }); 
                     imgupdateiterator = 0;
                 }
