@@ -88,12 +88,17 @@ namespace WGAN1
             //What values are correct in the critic
             double realanswer = 1;
             double fakeanswer = -1;
-
+            
             while (Training)
             {
+                double totalrealmean = 0;
+                double totalrealstddev = 0;
                 //Train critic x times per 1 of generator
                 for (int i = 0; i < ctg; i++)
                 {
+                    double realmean = 0;
+                    double realstddev = 0;
+
                     //Generate samples
                     var realsamples = new List<double[]>();
                     var fakesamples = new List<double[]>();
@@ -103,10 +108,23 @@ namespace WGAN1
                         fakesamples.Add(Generator.GenerateSample(Maths.RandomGaussian(r, LatentSize)));
                         //Find next image
                         realsamples.Add(IO.FindNextNumber(num));
+                        //Calculate values to help scale the fakes
+                        var mean = Maths.CalcMean(realsamples[ii]);
+                        realmean += mean;
+                        realstddev += Maths.CalcStdDev(realsamples[ii], mean);
                     }
+                    //Batch normalization
+                    realmean /= m; totalrealmean += realmean;
+                    realstddev /= m; totalrealstddev += realstddev;
+                    for (int ii = 0; ii < m; ii++)
+                    {
+                        realsamples[ii] = Maths.Normalize(realsamples[ii], realmean, realstddev);
+                    }
+
                     double overallscore = 0;
                     //Values for manual verification
                     List<double> rscores = new List<double>();
+
                     List<double> fscores = new List<double>();
                     for (int j = 0; j < m; j++)
                     {
@@ -160,7 +178,8 @@ namespace WGAN1
                 {
                     //Code that converts normalized generator outputs into an image
                     //Changes distribution of output values to 0-255 (brightness)
-                    var values = Maths.Rescale(test, 0, 255);
+                    totalrealmean /= ctg; totalrealstddev /= ctg;
+                    var values = Maths.Rescale(test, totalrealmean, totalrealstddev);
                     var image = new int[resolution, resolution];
                     int iterator = 0;
                     //Convert values to a 2d array

@@ -46,22 +46,18 @@ namespace WGAN1
         {
             return (1 - number) * (1 + number);
         }
-        public static double[] Rescale(double[] array, int min, int max)
+        public static double[] Rescale(double[] array, double mean, double stddev)
         {
-            double setmin = 0, setmax = 0;
-            //Find the minimum and maximum values of the dataset
-            foreach(double d in array)
-            {
-                if (d > setmax) { setmax = d; }
-                if (d < setmin) { setmin = d; }
-            }
-            //Rescale the dataset
+            //zscore
+            var arraymean = CalcMean(array);
+            var output = Normalize(array, arraymean, CalcStdDev(array, arraymean));
+            //Rescale the dataset (opposite of zscore)
             for (int i = 0; i < array.Length; i++)
             {
                 // min + ((array[i] - setmin) * (max - min) / (setmax - setmin))
-                array[i] = 255 * ((array[i] - setmin) / (setmax - setmin));
+                output[i] = (output[i] * stddev) + mean;
             }
-            return array;
+            return output;
         }
         /// <summary>
         /// Return an array of size latentsize of Gaussian distributed random variables (Box-Muller Transform)
@@ -110,18 +106,9 @@ namespace WGAN1
             }
             return output;
         }
-        public static double[] Normalize(double[] array)
+        public static double[] Normalize(double[] array, double mean, double stddev)
         {
-            double mean = 0;
-            double stddev = 0;
-            //Calc mean of data
-            foreach (double d in array) { mean += d; }
-            mean /= array.Length;
-            //Calc std dev of data
-            foreach (double d in array) { stddev += (d - mean) * (d - mean); }
-            stddev /= array.Length;
-            stddev = Math.Sqrt(stddev);
-            //Prevent divide by zero b/c of sigma = 0
+            //Prevent errors
             if (stddev == 0) { stddev = .000001; }
             //Calc zscore
             for (int i = 0; i < array.Length; i++)
@@ -131,29 +118,32 @@ namespace WGAN1
 
             return array;
         }
-        public static double[,] Normalize(double[,] array, int depth, int count)
+        /// <summary>
+        /// Calculates the mean of the array
+        /// </summary>
+        /// <param name="array">The set from which the mean is taken</param>
+        /// <returns></returns>
+        public static double CalcMean(double[] array)
         {
-            double[] smallarray = new double[depth * count];
-            int iterator = 0;
-            for (int i = 0; i < depth; i++)
-            {
-                for (int ii = 0; ii < count; ii++)
-                {
-                    smallarray[iterator] = array[i, ii];
-                    iterator++;
-                }
-            }
-            smallarray = Normalize(smallarray);
-            iterator = 0;
-            for (int i = 0; i < depth; i++)
-            {
-                for (int ii = 0; ii < count; ii++)
-                {
-                    array[i, ii] = smallarray[iterator];
-                    iterator++;
-                }
-            }
-            return array;
+            double mean = 0;
+            foreach (double d in array) { mean += d; }
+            mean /= array.Length;
+            return mean;
+        }
+        /// <summary>
+        /// Calculates the standard deviation of the array
+        /// </summary>
+        /// <param name="array">The set from which the stddev is taken</param>
+        /// <param name="mean">The mean of the set</param>
+        /// <returns></returns>
+        public static double CalcStdDev(double[] array, double mean)
+        {
+            double stddev = 0;
+            //Calc std dev of data
+            foreach (double d in array) { stddev += (d - mean) * (d - mean); }
+            stddev /= array.Length;
+            stddev = Math.Sqrt(stddev);
+            return stddev;
         }
     }
 }

@@ -85,8 +85,7 @@ namespace WGAN1
             {
                 result[i] = array[i];
             }
-            //Normalize the result matrix
-            return Maths.Normalize(result);
+            return result;
         }
         /// <summary>
         /// Returns a NN from a file

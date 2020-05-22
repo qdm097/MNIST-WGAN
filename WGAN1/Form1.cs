@@ -10,8 +10,8 @@ namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        double learningrate = 0.00001;
-        double rmsdecay = 0.9;
+        double learningrate = 0.00005;
+        double rmsdecay = 0.4;
         double clippingparameter = 1;
         int batchsize = 1;
         int ctogratio = 15;
