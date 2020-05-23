@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,6 +19,7 @@ namespace WGAN1
         public int InputLength { get; set; }
         double[,] RMSGrad { get; set; }
         public double[] Errors { get; set; }
+        public double[] IntermediaryErrors { get; set; }
         double[,] Gradients { get; set; }
         public double[] ZVals { get; set; }
         public double[] Values { get; set; }
@@ -26,8 +28,8 @@ namespace WGAN1
 
         public ConvolutionLayer(int kernelsize, int inputsize)
         {
-            Length = kernelsize; InputLength = inputsize;
-            KernelSize = (int)Math.Sqrt(kernelsize);
+            InputLength = inputsize;
+            KernelSize = kernelsize;
             Weights = new double[KernelSize, KernelSize];
             RMSGrad = new double[KernelSize, KernelSize];
             Gradients = new double[KernelSize, KernelSize];
@@ -45,7 +47,7 @@ namespace WGAN1
             }
             return this;
         }
-        public void Descend(int batchsize, double learningrate, double clipparameter, double RMSdecay)
+        public void Descend(int batchsize)
         {
             AvgUpdate = 0;
             for (int i = 0; i < KernelSize; i++)
@@ -53,80 +55,69 @@ namespace WGAN1
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
                     double gradient = Gradients[i, ii] * (-2d / batchsize);
-                    RMSGrad[i, ii] = (RMSGrad[i, ii] * RMSdecay) + ((1 - RMSdecay) * (gradient * gradient));
-                    double update = (learningrate / Math.Sqrt(RMSGrad[i, ii])) * gradient;
+                    double update = NN.LearningRate * gradient;
+                    //Root mean square propegation
+                    if (NN.UseRMSProp)
+                    {
+                        RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (gradient * gradient));
+                        update = (NN.LearningRate / Math.Sqrt(RMSGrad[i, ii])) * gradient;
+                    }
                     //Gradient clipping
-                    if (update > clipparameter) { update = clipparameter; }
-                    if (update < -clipparameter) { update = -clipparameter; }
+                    if (NN.UseClipping)
+                    {
+                        if (update > NN.ClipParameter) { update = NN.ClipParameter; }
+                        if (update < -NN.ClipParameter) { update = -NN.ClipParameter; }
+                    }
                     Weights[i, ii] -= update;
                     AvgUpdate -= update;
                 }
             }
-            AvgUpdate /= Weights.Length;
             Gradients = new double[KernelSize, KernelSize];
         }
-        public void Descend(double[] input, bool useless)
+        public void Backprop(double[] input, iLayer outputlayer, bool isoutput, double correct, bool calcgradients)
         {
-            Gradients = new double[KernelSize, KernelSize];
-            for (int k = 0; k < KernelSize; k++)
-            {
-                for (int j = 0; j < KernelSize; j++)
-                {
-                    Gradients[k, j] += input[j] * Maths.TanhDerriv(ZVals[k]) * Errors[k];
-                }
-            }
-        }
-        /// <summary>
-        /// Calculates the errors of the convolution
-        /// </summary>
-        /// <param name="outputlayer">The layer which comes after the convolutional layer</param>
-        public void Backprop(iLayer outputlayer)
-        {
+            //Calc errors
+            double[,] Input = Maths.Convert(input);
             if (outputlayer is FullyConnectedLayer)
             {
-                var errors = new double[outputlayer.InputLength];
+                //Errors with respect to the output of the convolution
+                //dl/do
+                Errors = new double[outputlayer.InputLength];
                 for (int k = 0; k < outputlayer.Length; k++)
                 {
                     for (int j = 0; j < outputlayer.InputLength; j++)
                     {
-                        errors[j] += outputlayer.Weights[k, j] * Maths.TanhDerriv(outputlayer.ZVals[k]) * outputlayer.Errors[k];
+                        Errors[j] += outputlayer.Weights[k, j] * Maths.TanhDerriv(outputlayer.ZVals[k]) * outputlayer.Errors[k];
                     }
                 }
-                //The error of a convolutional matrix is equivalent to 
-                //the full convolution of the kernel and its flipped error matrix
-                Errors = Maths.Convert(FullConvolve(Maths.Convert(errors)));
             }
-            else
+            if (outputlayer is ConvolutionLayer)
             {
-                var ocl = outputlayer as ConvolutionLayer;
-                var sidelength = (int)Math.Sqrt(Values.Length);
-                int length = (sidelength / StepSize) - ocl.KernelSize + 1;
-                int width = (sidelength / StepSize) - ocl.KernelSize + 1;
-                int ss = StepSize;
-
-                var oclerrors = Maths.Convert(ocl.Errors);
-                var inputvalues = Maths.Convert(Values);
-
-                double[,] errors = new double[sidelength, sidelength];
-                for (int i = 0; i < length; i++)
-                {
-                    for (int ii = 0; ii < width; ii++)
-                    {
-                        for (int j = 0; j < ocl.KernelSize; j++)
-                        {
-                            for (int jj = 0; jj < ocl.KernelSize; jj++)
-                            {
-                                //Error += weight * error * tanhderriv(zval)
-                                errors[(i * ss) + j, (ii * ss) + jj] += ocl.Weights[j, jj] * oclerrors[j, jj]
-                                    * Maths.TanhDerriv(ocl.Weights[j, jj] * inputvalues[(i * ss) + j, (ii * ss) + jj]);
-                            }
-                        }
-                    }
-                }
-                Errors = Maths.Convert(FullConvolve(errors));
+                var CLOutput = outputlayer as ConvolutionLayer;
+                //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
+                
+                //Critic upscales to find errors
+                if (COG) { Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))); }
+                //Generator downscales to find them
+                else { Errors = Maths.Convert(Flip(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+                
             }
+            //Gradients = Convolve(Maths.Convert(Errors), Input);
+            
+            if (COG && calcgradients) { Gradients = Convolve(Maths.Convert(Errors), Input); }
+            //No idea if this is accurate, but it works
+            if (!COG && calcgradients) { 
+
+
+
+                //WORKING HERE
+
+
+
+                Gradients = Convolve(Input, Maths.Convert(Errors)); 
+            }
+            
         }
-        public void Backprop(double useless) { throw new Exception("The convolution layer is never an output layer"); }
         /// <summary>
         /// Calculates the dot product of the kernel and input matrix.
         /// Matrices should be size [x, y] and [y], respectively, where x is the output size and y is the latent space's size
@@ -138,75 +129,59 @@ namespace WGAN1
         {
             Calculate(Maths.Convert(input), isoutput);
         }
-        /// <summary>
-        /// Partial convolution layer
-        /// </summary>
-        /// <param name="input"></param>
-        /// <param name="isoutput"></param>
         public void Calculate(double[,] input, bool isoutput)
         {
-            //Critic layer doesn't use masks or padding
-            var output = COG ? Convolve(input) : Convolve(Pad(input));
+            //Padded upscaling
+            //var output = COG ? Convolve(Weights, input) : Convolve(Weights, Pad(input));
+
+            //Transposed convolutional upscaling
+            var output = COG ? Convolve(Weights, input) : FullConvolve(Weights, input);
             ZVals = Maths.Convert(output);
             if (!isoutput) { output = Maths.Tanh(output); }
             Values = Maths.Convert(output);
         }
-        public double[,] Convolve(double[,] input)
+        public double[,] Convolve(double[,] filter, double[,] input)
         {
-            int length = (input.GetLength(0) / StepSize) - KernelSize + 1;
-            int width = (input.GetLength(1) / StepSize) - KernelSize + 1;
+            int kernelsize = filter.GetLength(0);
+            int length = (input.GetLength(0) / StepSize) - kernelsize + 1;
+            int width = (input.GetLength(1) / StepSize) - kernelsize + 1;
 
             double[,] output = new double[length, width];
             for (int i = 0; i < length; i++)
             {
                 for (int ii = 0; ii < width; ii++)
                 {
-                    for (int j = 0; j < KernelSize; j += StepSize)
+                    for (int j = 0; j < kernelsize; j += StepSize)
                     {
-                        for (int jj = 0; jj < KernelSize; jj += StepSize)
+                        for (int jj = 0; jj < kernelsize; jj += StepSize)
                         {
-                            //Only add the value if it's an original value (Mask[_,_] != 0)
-                            if (!COG && Mask[(i * StepSize) + j, (ii * StepSize) + jj] == 0) { continue; }
-                            output[i, ii] += input[(i * StepSize) + j, (ii * StepSize) + jj] * Weights[j, jj];
+                            output[i, ii] += input[(i * StepSize) + j, (ii * StepSize) + jj] * filter[j, jj];
                         }
                     }
                 }
             }
             return output;
         }
-        public double[,] FullConvolve(double[,] input)
+        /// <summary>
+        /// This is also known as "Transposed convolution" and "Partially strided convolution"
+        /// </summary>
+        /// <param name="filter"></param>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public double[,] FullConvolve(double[,] filter, double[,] input)
         {
-            double[,] output = new double[KernelSize, KernelSize];
-            for (int i = 0; i < KernelSize; i++)
+            var kernelsize = input.GetLength(0) + filter.GetLength(0) - 1;
+            double[,] output = new double[kernelsize, kernelsize];
+            for (int i = 0; i < input.GetLength(0); i += StepSize)
             {
-                for (int ii = 0; ii < KernelSize; ii++)
+                for (int ii = 0; ii < input.GetLength(1); ii += StepSize)
                 {
-                    for (int j = 0; j < input.GetLength(0); j++)
+                    for (int j = 0; j < filter.GetLength(0); j += StepSize)
                     {
-                        for (int jj = 0; jj < input.GetLength(1); jj++)
+                        for (int jj = 0; jj < filter.GetLength(1); jj += StepSize)
                         {
-                            if (i + j >= KernelSize || ii + jj >= KernelSize) { continue; }
-                            output[i, ii] += Weights[(i * StepSize) + j, (ii * StepSize) + jj] * input[j, jj];
-                        }
-                    }
-                }
-            }
-            return output;
-        }
-        public double[,] FullConvolveTest(double[,] input)
-        {
-            var size = 6;
-            double[,] output = new double[size, size];
-            for (int i = 0; i < input.GetLength(0); i++)
-            {
-                for (int ii = 0; ii < input.GetLength(1); ii++)
-                {
-                    for (int j = 0; j < KernelSize; j++)
-                    {
-                        for (int jj = 0; jj < KernelSize; jj++)
-                        {
-                            if (i + j >= size || ii + jj >= size) { continue; }
-                            output[i, ii] += input[(i * StepSize) + j, (ii * StepSize) + jj] * Weights[j, jj];
+                            if ((i * StepSize) + j >= kernelsize || (ii * StepSize) + jj >= kernelsize) { continue; }
+                            output[(i * StepSize) + j, (ii * StepSize) + jj] += input[i, ii] * filter[j, jj];
                         }
                     }
                 }

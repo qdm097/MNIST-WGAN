@@ -118,6 +118,29 @@ namespace WGAN1
 
             return array;
         }
+        public static double[] Normalize(double[] input)
+        {
+            double mean = 0;
+            double stddev = 0;
+            //Calc mean of data
+            foreach (double d in input) { mean += d; }
+            mean /= input.Length;
+            //Calc std dev of data
+            foreach (double d in input) { stddev += (d - mean) * (d - mean); }
+            stddev /= input.Length;
+            stddev = Math.Sqrt(stddev);
+            //Prevent divide by zero b/c of sigma = 0
+            if (stddev == 0) { stddev = .000001; }
+            double[] output = new double[input.Length];
+            //Calc zscores
+            for (int i = 0; i < output.Length; i++)
+            {
+                output[i] = (input[i] - mean) / stddev;
+            }
+
+            return output;
+        }
+
         /// <summary>
         /// Calculates the mean of the array
         /// </summary>

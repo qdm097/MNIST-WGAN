@@ -10,24 +10,18 @@ namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        double learningrate = 0.0001;
-        double rmsdecay = 0.6;
-        double clippingparameter = 1;
+        public List<string> LayerTypes { get; set; }
+        public List<int> LayerCounts { get; set; }
+        public List<string> InactiveLayerTypes { get; set; }
+        public List<int> InactiveLayerCounts { get; set; }
+        NN Critic;
+        NN Generator;
         int batchsize = 5;
         int ctogratio = 5;
-        int gncount = 25;
-        int cncount = 25;
         int imgspeed = 0;
-        //True is convlayer false is fullyconnected layer
-        //DO NOT have a convolution layer be the last unless you calculate its output size (MUST BE 28*28)
-        List<bool> gLayerTypes = new List<bool>() { false, true, true, true, false };
-        List<bool> cLayerTypes = new List<bool>() { true, false, true, false };
-        //Manually setting the c-layer's position and kernel size for now
-        //Kernel size is length NOT getlength(0)
-        //Kernel size MUST be a perfect square because of this
-        int kernelsize = 4;
+
         int resolution = 28;
-        int latentsize = 25;
+        int latentsize = 36;
         //The maximum RMSE allowed before the network stops learning
         public static int Cutoff = 10;
         bool dt;
@@ -45,11 +39,27 @@ namespace WGAN1
         public Form1()
         {
             InitializeComponent();
-            ClipTxt.Text = clippingparameter.ToString();
-            AlphaTxt.Text = learningrate.ToString();
-            RMSDTxt.Text = rmsdecay.ToString();
+            //Layer types combobox
+            LayerTypeCB.Items.Add("Fully Connected");
+            LayerTypeCB.Items.Add("Convolution");
+            LayerTypeCB.SelectedIndex = 0;
+
+            ClipTxt.Text = NN.ClipParameter.ToString();
+            AlphaTxt.Text = NN.LearningRate.ToString();
+            RMSDTxt.Text = NN.RMSDecay.ToString();
             MTxt.Text = batchsize.ToString();
             CTGTxt.Text = ctogratio.ToString();
+            try
+            {
+                Critic = IO.Read(true);
+                Generator = IO.Read(false);
+            }
+            catch
+            {
+                ResetBtn_Click(this, new EventArgs());
+            }
+            RefreshListBoxes(Generator, true);
+            RefreshListBoxes(Critic, false);
         }
         private void TrainBtn_Click(object sender, EventArgs e)
         {
@@ -57,8 +67,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(true, GenerateLayers(false), GenerateLayers(true), latentsize, resolution, 
-                    learningrate, clippingparameter, batchsize, ctogratio, rmsdecay, 1, this, imgspeed);               
+                NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed);               
             });
             thread.IsBackground = true;
             thread.Start();
@@ -67,33 +76,61 @@ namespace WGAN1
         {
             if (NN.Training) { NN.Save = false; NN.Training = false; TrainBtn.Enabled = false; }
             //Generator
-            IO.Write(new NN().SetHyperParams(learningrate, 99).Init(GenerateLayers(false), false), false);
+            Generator = new NN().Init(GenerateLayers(false), false);
+            IO.Write(Generator, false);
             //Critic
-            IO.Write(new NN().SetHyperParams(learningrate, clippingparameter).Init(GenerateLayers(true), true), true);
+            Critic = new NN().Init(GenerateLayers(true), true);
+            IO.Write(Critic, true);
         }
-        List<iLayer> GenerateLayers(bool cog)
+        List<iLayer> GenerateLayers(bool COG)
         {
-            List<bool> layertypes = cog ? cLayerTypes : gLayerTypes;
-            int layercount = layertypes.Count;
-            int ncount = cog ? cncount : gncount;
-            List<iLayer> layers = new List<iLayer>();
-            int priorsize = cog ? resolution * resolution : latentsize;
-            for (int i = 0; i < layercount; i++)
+            int priorsize;
+            if (COG) { priorsize = resolution * resolution; }
+            else { priorsize = latentsize; }
+            List<int> layercounts;
+            List<string> layertypes;
+            if (this.COG.Checked == COG)
             {
-                if (i == layercount - 1) { ncount = cog ? 1 : 28 * 28; }
-                if (layertypes[i])
+                layercounts = LayerCounts;
+                layertypes = LayerTypes;
+            }
+            else
+            {
+                layercounts = InactiveLayerCounts;
+                layertypes = InactiveLayerTypes;
+            }
+            List<iLayer> layers = new List<iLayer>();
+            for (int i = 0; i < layercounts.Count; i++)
+            {
+                int ncount = layercounts[i];
+                //If a convolution
+                if (layertypes[i] == "c")
                 {
-                    layers.Add(new ConvolutionLayer(kernelsize, priorsize));
+                    layers.Add(new ConvolutionLayer(ncount, priorsize));
+                    (layers[i] as ConvolutionLayer).COG = COG;
                     //Calculate the padded matrix size (if applicable)
-                    int temp = cog ? (int)Math.Sqrt(priorsize) : (int)(Math.Sqrt(priorsize) + (2 * (Math.Sqrt(kernelsize) - 1)));
-                    priorsize = (int)((temp / ConvolutionLayer.StepSize) - Math.Sqrt(kernelsize) + 1);
+                    int temp = (int)Math.Sqrt(priorsize);
+                    
+                    if (COG)
+                    {
+                        //Critic decreases the size of the inputted array
+                        priorsize = (int)((temp / ConvolutionLayer.StepSize) - ncount + 1);
+                    }
+                    else
+                    {
+                        //Generator increases the size of the inputted array
+                        priorsize = (int)(temp + ncount - 1);
+                    }
                     priorsize *= priorsize;
+                    continue;
                 }
-                else
+                if (layertypes[i] == "f")
                 {
                     layers.Add(new FullyConnectedLayer(ncount, priorsize));
                     priorsize = ncount;
+                    continue;
                 }
+                throw new Exception("Invalid layer type");
             }
             return layers;
         }
@@ -101,14 +138,14 @@ namespace WGAN1
         {
             if (!double.TryParse(AlphaTxt.Text, out double lr)) { MessageBox.Show("NAN"); return; }
             if (lr < 0 || lr > 1) { MessageBox.Show("Learning rate must be between 0 and 1"); return; }
-            learningrate = lr;
+            NN.LearningRate = lr;
         }
 
         private void RMSDTxt_TextChanged(object sender, EventArgs e)
         {
             if (!double.TryParse(RMSDTxt.Text, out double rmsrate)) { MessageBox.Show("NAN"); return; }
             if (rmsrate < 0 || rmsrate > 1) { MessageBox.Show("Invalid RMS decay rate"); return; }
-            rmsdecay = rmsrate;
+            NN.RMSDecay = rmsrate;
         }
 
         private void MTxt_TextChanged(object sender, EventArgs e)
@@ -128,7 +165,7 @@ namespace WGAN1
         {
             if (!double.TryParse(ClipTxt.Text, out double clippar)) { MessageBox.Show("NAN"); return; }
             if (clippar <= 0 || clippar > 10) { MessageBox.Show("The clipping parameter must be between 0 and 10"); return; }
-            clippingparameter = clippar;
+            NN.ClipParameter = clippar;
         }
         private void ClearBtn_Click(object sender, EventArgs e)
         {
@@ -223,6 +260,223 @@ namespace WGAN1
                 newImage.Palette = pal;
             }
             return newImage;
+        }
+        private List<string> DefaultTypes()
+        {
+            var list = new List<string>();
+            if (COG.Checked)
+            {
+                list.Add("c");
+                list.Add("c");
+                list.Add("f");
+                list.Add("f");
+                list.Add("f");
+            }
+            else
+            {
+                list.Add("f");
+                list.Add("f");
+                list.Add("c");
+                list.Add("c");
+                list.Add("f");
+            }
+            return list;
+        }
+        private List<int> DefaultCounts()
+        {
+            var list = new List<int>();
+            if (COG.Checked)
+            {
+                list.Add(3);
+                list.Add(2);
+                list.Add(36);
+                list.Add(17);
+                list.Add(1);
+            }
+            else
+            {
+                list.Add(49);
+                list.Add(100);
+                list.Add(3);
+                list.Add(2);
+                list.Add(28 * 28);
+            }
+            return list;
+        }
+        private void RefreshListBoxes(NN desired, bool ActiveOrInactive)
+        {
+            var types = new List<string>();
+            var counts = new List<int>();
+            LayerLB.Items.Clear();
+
+            foreach (iLayer l in desired.Layers)
+            {
+                string name = null;
+                int len = l.Length;
+                if (l is FullyConnectedLayer) { types.Add("f"); name = "Fully Connected"; }
+                if (l is ConvolutionLayer) { types.Add("c"); name = "Convolution"; len = (l as ConvolutionLayer).KernelSize; }
+                counts.Add(len);
+                LayerLB.Items.Add("[" + (counts.Count - 1).ToString() + "] " + name + ", " + len.ToString());
+            }
+            if (ActiveOrInactive)
+            {
+                LayerTypes = types;
+                LayerCounts = counts;
+            }
+            else
+            {
+                InactiveLayerTypes = types;
+                InactiveLayerCounts = counts;
+            }
+        }
+        private void LayerLB_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (LayerLB.SelectedIndex < 0) { return; }
+            LayerCountTxt.Text = LayerCounts[LayerLB.SelectedIndex].ToString();
+        }
+
+        private void UpBtn_Click(object sender, EventArgs e)
+        {
+            if (LayerLB.Items.Count < 2) { return; }
+            if (LayerLB.SelectedIndex == 0) { return; }
+
+            //Layercounts
+            int i = LayerCounts[LayerLB.SelectedIndex];
+            LayerCounts[LayerLB.SelectedIndex] = LayerCounts[LayerLB.SelectedIndex - 1];
+            LayerCounts[LayerLB.SelectedIndex - 1] = i;
+
+            //Layer types
+            string s = LayerTypes[LayerLB.SelectedIndex];
+            LayerTypes[LayerLB.SelectedIndex] = LayerTypes[LayerLB.SelectedIndex - 1];
+            LayerTypes[LayerLB.SelectedIndex - 1] = s;
+
+            //Layer list box
+            string selected = LayerLB.Items[LayerLB.SelectedIndex].ToString();
+            string replaced = LayerLB.Items[LayerLB.SelectedIndex - 1].ToString();
+            selected = selected.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex - 1).ToString());
+            replaced = replaced.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex).ToString());
+            LayerLB.Items[LayerLB.SelectedIndex] = replaced;
+            LayerLB.Items[LayerLB.SelectedIndex - 1] = selected;
+            LayerLB.SelectedIndex--;
+        }
+
+        private void DownBtn_Click(object sender, EventArgs e)
+        {
+            if (LayerLB.Items.Count < 2) { return; }
+            if (LayerLB.SelectedIndex == LayerLB.Items.Count - 1) { return; }
+
+            //Layercounts
+            int i = LayerCounts[LayerLB.SelectedIndex];
+            LayerCounts[LayerLB.SelectedIndex] = LayerCounts[LayerLB.SelectedIndex + 1];
+            LayerCounts[LayerLB.SelectedIndex + 1] = i;
+
+            //Layer types
+            string s = LayerTypes[LayerLB.SelectedIndex];
+            LayerTypes[LayerLB.SelectedIndex] = LayerTypes[LayerLB.SelectedIndex + 1];
+            LayerTypes[LayerLB.SelectedIndex + 1] = s;
+
+            //Layer list box
+            string selected = LayerLB.Items[LayerLB.SelectedIndex].ToString();
+            string replaced = LayerLB.Items[LayerLB.SelectedIndex + 1].ToString();
+            selected = selected.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex + 1).ToString());
+            replaced = replaced.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex).ToString());
+            LayerLB.Items[LayerLB.SelectedIndex] = replaced;
+            LayerLB.Items[LayerLB.SelectedIndex + 1] = selected;
+            LayerLB.SelectedIndex++;
+        }
+
+        private void AddBtn_Click(object sender, EventArgs e)
+        {
+            int result = int.Parse(LayerCountTxt.Text);
+            string type = null;
+            if (LayerTypeCB.Text == "Fully Connected") { type = "f"; }
+            if (LayerTypeCB.Text == "Convolution")
+            {
+                type = "c";
+                if (result > 10)
+                {
+                    MessageBox.Show("Convolution's layer count is squared, must still be between 0 and 100");
+                    return;
+                }
+            }
+            LayerTypes.Add(type);
+            LayerCounts.Add(result);
+            LayerLB.Items.Add("[" + (LayerCounts.Count - 1).ToString() + "] " + LayerTypeCB.Text + ", " + result.ToString());
+        }
+
+        private void DelBtn_Click(object sender, EventArgs e)
+        {
+            if (LayerLB.Items.Count == 0) { return; }
+            if (LayerLB.SelectedIndex == LayerTypes.Count - 1) { MessageBox.Show("Can't remove the output layer"); return; }
+            LayerTypes.RemoveAt(LayerLB.SelectedIndex);
+            LayerCounts.RemoveAt(LayerLB.SelectedIndex);
+            LayerLB.Items.RemoveAt(LayerLB.SelectedIndex);
+        }
+
+        private void LayerCountTxt_TextChanged(object sender, EventArgs e)
+        {
+            if (LayerLB.SelectedIndex == LayerLB.Items.Count - 1) { return; }
+            if (!(int.TryParse(LayerCountTxt.Text, out int result)) || result > 100 || result < 1)
+            { LayerCountTxt.Text = 30.ToString(); MessageBox.Show("Layer count must be an int between 0 and 100\nReset to default"); return; }
+        }
+
+        private void UpdateBtn_Click(object sender, EventArgs e)
+        {
+            if (LayerLB.Items.Count == 0) { return; }
+            if (LayerLB.SelectedIndex == LayerTypes.Count - 1) { MessageBox.Show("Can't change the output layer"); return; }
+            int result = int.Parse(LayerCountTxt.Text);
+            string type = null;
+            if (LayerTypeCB.Text == "Fully Connected") { type = "f"; }
+            if (LayerTypeCB.Text == "Convolution")
+            {
+                type = "c";
+                if (result > 10)
+                {
+                    MessageBox.Show("Convolution's layer count is squared, must be between 0 and 10");
+                    return;
+                }
+            }
+            LayerTypes[LayerLB.SelectedIndex] = type;
+            LayerCounts[LayerLB.SelectedIndex] = result;
+            LayerLB.Items[LayerLB.SelectedIndex] = "[" + LayerLB.SelectedIndex.ToString() + "] " + LayerTypeCB.Text + ", " + result.ToString();
+
+        }
+
+        private void DefaultBtn_Click(object sender, EventArgs e)
+        {
+            LayerTypes = DefaultTypes();
+            LayerCounts = DefaultCounts();
+            NN newnn = ResetNN();
+            RefreshListBoxes(newnn, true);
+        }
+        private NN ResetNN()
+        {
+            NN nn = new NN();
+            if (LayerTypes is null || LayerTypes.Count == 0)
+            {
+                LayerTypes = DefaultTypes();
+                LayerCounts = DefaultCounts();
+            }
+            nn.Init(GenerateLayers(COG.Checked), COG.Checked);
+            IO.Write(nn, COG.Checked);
+            return nn;
+        }
+
+        private void COG_CheckedChanged(object sender, EventArgs e)
+        {
+            var templcs = InactiveLayerCounts;
+            InactiveLayerCounts = LayerCounts;
+            LayerCounts = templcs;
+            var templts = InactiveLayerTypes;
+            InactiveLayerTypes = LayerTypes;
+            LayerTypes = templts;
+
+            if (LayerTypes is null || LayerTypes.Count == 0)
+            {
+                DefaultBtn_Click(sender, e); return;
+            }
+            NN newnn = ResetNN();
+            RefreshListBoxes(newnn, true);
         }
     }
 }

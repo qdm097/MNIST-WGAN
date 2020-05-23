@@ -51,37 +51,49 @@ namespace WGAN1
         /// Applies the gradients to the weights as a batch
         /// </summary>
         /// <param name="batchsize">The number of trials run per cycle</param>
-        /// <param name="learningrate">The rate of learning</param>
         /// <param name="clipparameter">What the max/min </param>
         /// <param name="RMSDecay">How quickly the RMS gradients decay</param>
-        public void Descend(int batchsize, double learningrate, double clipparameter, double RMSDecay)
+        public void Descend(int batchsize)
         {
-            AvgGradient = 0;
             for (int i = 0; i < Length; i++)
             {
                 for (int ii = 0; ii < InputLength; ii++)
                 {
                     //Normal gradient descent update
                     double gradient = WeightGradient[i, ii] * (-2d / batchsize);
-                    //Definition of RMSProp
-                    WRMSGrad[i, ii] = (WRMSGrad[i, ii] * RMSDecay) + ((1 - RMSDecay) * (gradient * gradient));
-                    double update = (learningrate / Math.Sqrt(WRMSGrad[i, ii])) * gradient;
+                    double update = NN.LearningRate * gradient;
+                    //Root mean square propegation
+                    if (NN.UseRMSProp)
+                    {
+                        WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (gradient * gradient));
+                        update = (NN.LearningRate / Math.Sqrt(WRMSGrad[i, ii])) * gradient;
+                    }
                     //Gradient clipping
-                    if (update > clipparameter) { update = clipparameter; }
-                    if (update < -clipparameter) { update = -clipparameter; }
+                    if (NN.UseClipping)
+                    {
+                        if (update > NN.ClipParameter) { update = NN.ClipParameter; }
+                        if (update < -NN.ClipParameter) { update = -NN.ClipParameter; }
+                    }
                     //Update weight and average
                     Weights[i, ii] -= update;
-                    AvgGradient -= update;
                 }
                 //Normal gradient descent update
                 double bgradient = BiasGradient[i] * (-2d / batchsize);
+                double bupdate = NN.LearningRate * bgradient;
+                //Root mean square propegation
+                if (NN.UseRMSProp)
+                {
+                    BRMSGrad[i] = (BRMSGrad[i] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (bgradient * bgradient));
+                    bupdate = (NN.LearningRate / Math.Sqrt(BRMSGrad[i])) * bgradient;
+                }
                 //Gradient clipping
-                if (bgradient > clipparameter) { bgradient = clipparameter; }
-                if (bgradient < -clipparameter) { bgradient = -clipparameter; }
-                //Definition of RMSProp
-                BRMSGrad[i] = (BRMSGrad[i] * RMSDecay) + ((1 - RMSDecay) * (bgradient * bgradient));
+                if (NN.UseClipping)
+                {
+                    if (bupdate > NN.ClipParameter) { bupdate = NN.ClipParameter; }
+                    if (bupdate < -NN.ClipParameter) { bupdate = -NN.ClipParameter; }
+                }
                 //Update bias
-                Biases[i] -= (learningrate / Math.Sqrt(BRMSGrad[i])) * bgradient;
+                Biases[i] -= bupdate;
             }
             //Reset gradients (but not RMS gradients)
             WeightGradient = new double[Length, InputLength];
@@ -92,83 +104,56 @@ namespace WGAN1
         /// </summary>
         /// <param name="input">Previous layer's values</param>
         /// <param name="isoutput">Whether the layer is the output layer</param>
-        public void Descend(double[] input, bool isoutput)
-        {
-            for (int i = 0; i < Length; i++)
-            {
-                for (int ii = 0; ii < InputLength; ii++)
-                {
-                    //Weight gradients
-                    WeightGradient[i, ii] += input[ii] * Maths.TanhDerriv(Values[i]) * Errors[i];
-                }
-                if (isoutput) { continue; }
-                //Bias gradients
-                BiasGradient[i] += Errors[i];
-            }
-        }
         /// <summary>
-        /// I used the following intuition to work out this method of backpropegation, 
-        /// because I could not find an explanation anywhere online:
-        /// "Error is how much you're wrong, adjusted for how much your superior cares and how much he's wrong"
-        /// I then realized that this applies to convolution as much as it does normally.
-        /// So that means the error, with respect to any given input value, is defined the same as normally.
-        /// In other words, <i>you can use the same formula as normal, but calculate it with convolution</i>
-        /// This is done like so: "Error += output.weight * output.error * tanhderriv(output.zval)"
-        /// With respect to the given indices: i, ii, j, jj.
-        /// All adjusted for convolution, demonstraighted below.
+        /// Backpropegation of error and calcluation of gradients
         /// </summary>
-        /// <param name="outputlayer"></param>
-        public void Backprop(iLayer outputlayer)
-        {            
-            if (outputlayer is FullyConnectedLayer)
+        /// <param name="input">Previous layer's values</param>
+        /// <param name="isoutput">Whether the layer is the output layer</param>
+        public void Backprop(double[] input, iLayer outputlayer, bool isoutput, double correct, bool calcgradients)
+        {
+            //Calculate error
+            if (isoutput)
             {
-                var FCLOutput = outputlayer as FullyConnectedLayer;
                 Errors = new double[Length];
-                for (int k = 0; k < FCLOutput.Length; k++)
+                for (int i = 0; i < Length; i++)
                 {
-                    for (int j = 0; j < Length; j++)
-                    {
-                        Errors[j] += FCLOutput.Weights[k, j] * Maths.TanhDerriv(FCLOutput.ZVals[k]) * FCLOutput.Errors[k];
-                    }
+                    Errors[i] = 2d * (correct - Values[i]);
                 }
             }
             else
             {
-                var ocl = outputlayer as ConvolutionLayer;
-                var sidelength = (int)Math.Sqrt(Length);
-                int length = (sidelength / ConvolutionLayer.StepSize) - ocl.KernelSize + 1;
-                int width = (sidelength / ConvolutionLayer.StepSize) - ocl.KernelSize + 1;
-                int ss = ConvolutionLayer.StepSize;
-
-                var oclerrors = Maths.Convert(ocl.Errors);
-                var inputvalues = Maths.Convert(Values);
-
-                double[,] errors = new double[sidelength, sidelength];
-                for (int i = 0; i < length; i++)
+                if (outputlayer is FullyConnectedLayer)
                 {
-                    for (int ii = 0; ii < width; ii++)
+                    var FCLOutput = outputlayer as FullyConnectedLayer;
+                    Errors = new double[Length];
+                    for (int k = 0; k < FCLOutput.Length; k++)
                     {
-                        for (int j = 0; j < ocl.KernelSize; j += ss)
+                        for (int j = 0; j < Length; j++)
                         {
-                            for (int jj = 0; jj < ocl.KernelSize; jj += ss)
-                            {
-                                //Error += weight * error * tanhderriv(zval)
-                                errors[(i * ss) + j, (ii * ss) + jj] += ocl.Weights[j, jj] * oclerrors[j, jj] 
-                                    * Maths.TanhDerriv(ocl.Weights[j, jj] * inputvalues[(i * ss) + j, (ii * ss) + jj]);
-                            }
+                            Errors[j] += FCLOutput.Weights[k, j] * Maths.TanhDerriv(outputlayer.ZVals[k]) * FCLOutput.Errors[k];
                         }
                     }
                 }
-                Errors = Maths.Convert(errors);
+                if (outputlayer is ConvolutionLayer)
+                {
+                    var CLOutput = outputlayer as ConvolutionLayer;
+                    Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
+                }
             }
-            
-        }
-        public void Backprop(double correct)
-        {
-            Errors = new double[Length];
-            for (int i = 0; i < Length; i++)
+            if (calcgradients)
             {
-                Errors[i] = 2d * (correct - Values[i]);
+                //Calculate gradients
+                for (int i = 0; i < Length; i++)
+                {
+                    for (int ii = 0; ii < InputLength; ii++)
+                    {
+                        //Weight gradients
+                        WeightGradient[i, ii] = input[ii] * Maths.TanhDerriv(ZVals[i]) * Errors[i];
+                    }
+                    if (isoutput) { continue; }
+                    //Bias gradients
+                    BiasGradient[i] = Maths.TanhDerriv(ZVals[i]) * Errors[i];
+                }
             }
         }
         public void Calculate(double[] input, bool output)

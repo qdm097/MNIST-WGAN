@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Windows.Forms;
 
 namespace WGAN1
 {
@@ -11,8 +12,11 @@ namespace WGAN1
     {
         public int NumLayers { get; set; }
         public List<iLayer> Layers { get; set; }
-        public double LearningRate { get; set; }
-        public double ClippingParameter { get; set; }
+        public static double LearningRate = .0000146;
+        public static double RMSDecay = .9;
+        public static bool UseRMSProp = true;
+        public static bool UseClipping = false;
+        public static double ClipParameter = 1;
         public double BatchSize { get; set; }
         public static bool Training = false;
         public static bool Clear = false;
@@ -41,17 +45,6 @@ namespace WGAN1
             return this;
         }
         /// <summary>
-        /// Sets the hyper parameters of the NN
-        /// </summary>
-        /// <param name="a">Learning rate</param>
-        /// <param name="c">Clipping parameter</param>
-        /// <returns></returns>
-        public NN SetHyperParams(double a, double c)
-        {
-            LearningRate = a; ClippingParameter = c;
-            return this;
-        }
-        /// <summary>
         /// Trains the GAN
         /// </summary>
         /// <param name="LoadOrGenerate">Whether to load the WBs or to generate new ones</param>
@@ -61,33 +54,21 @@ namespace WGAN1
         /// <param name="gwbcount">How many WBs are in the generator per layer</param>
         /// <param name="glayertypes">What type of layer each layer is (convolutional or fully connected)</param>
         /// <param name="clayertypes">Only feed in FCLs to this or things will break</param>
-        /// <param name="a">Learning rate</param>
-        /// <param name="c">Clipping parameter</param>
         /// <param name="m">Batch size</param>
         /// <param name="ctg">Critic to generator ratio</param>
-        /// <param name="rmsd">How quickly the RMS gradients decay (psuedo momentum)</param>
         /// <param name="num">What number is being generated</param>
         /// <param name="LatentSize">The size of the latent space for the generator</param>
         /// <param name="activeform">The form where the image will be updated</param>
         /// <param name="imgspeed">How quickly the image should update as a function of the algorithm</param>
-        public static void Train(bool LoadOrGenerate, List<iLayer> glayers, List<iLayer> clayers, int LatentSize, int resolution,
-            double a, double c, int m, int ctg, double rmsd, int num, Form1 activeform, int imgspeed)
+        public static void Train(NN Critic, NN Generator, int LatentSize, int resolution,
+             int m, int ctg, int num, Form1 activeform, int imgspeed)
         {
-            NN Critic;
-            NN Generator;
-            if (LoadOrGenerate) { Critic = IO.Read(true); Generator = IO.Read(false); }
-            else 
-            {
-                Critic = new NN().SetHyperParams(a, c).Init(clayers, true);
-                //Generator does not have clipping
-                Generator = new NN().SetHyperParams(a, 99).Init(glayers, false);
-            }
             int imgupdateiterator = 0;
             //The generator of the latentspace
             Random r = new Random();
             //What values are correct in the critic
             double realanswer = 1;
-            double fakeanswer = -1;
+            double fakeanswer = 0;
             
             while (Training)
             {
@@ -118,13 +99,13 @@ namespace WGAN1
                     realstddev /= m; totalrealstddev += realstddev;
                     for (int ii = 0; ii < m; ii++)
                     {
-                        realsamples[ii] = Maths.Normalize(realsamples[ii], realmean, realstddev);
+                        realsamples[ii] = Maths.Normalize(realsamples[ii]);
+                        //realsamples[ii] = Maths.Normalize(realsamples[ii], realmean, realstddev);
                     }
 
                     double overallscore = 0;
                     //Values for manual verification
                     List<double> rscores = new List<double>();
-
                     List<double> fscores = new List<double>();
                     for (int j = 0; j < m; j++)
                     {
@@ -132,23 +113,23 @@ namespace WGAN1
 
                         //Real image
                         Critic.Calculate(realsamples[j]);
-                        Critic.CalcGradients(realsamples[j], realanswer, null);
+                        Critic.CalcGradients(realsamples[j], realanswer, null, true);
                         overallscore += Math.Pow((Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] - realanswer, 2);
                         rscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[0]);
                         //Fake image
                         Critic.Calculate(fakesamples[j]);
-                        Critic.CalcGradients(fakesamples[j], fakeanswer, null);
+                        Critic.CalcGradients(fakesamples[j], fakeanswer, null, true);
                         overallscore += Math.Pow((Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] - fakeanswer, 2);
                         fscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[0]);
                     }
-                    if (Clear) { Critic.Trials = 0; Critic.Error = 0; Clear = false; }
-                    overallscore /= m;
-                    overallscore = Math.Sqrt(overallscore);
+                    if (Clear) { Critic.Trials = 0; Clear = false; }
+                    //overallscore /= m;
+                    overallscore = Math.Sqrt(overallscore / m);
                     double ratio = (double)Critic.Trials / (Critic.Trials + 1);
-                    Critic.Error = (ratio * Critic.Error) + ((1 - ratio) * overallscore);
                     Critic.Trials++;
+                    Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (overallscore * (1d / (Critic.Trials)));
                     //Update WBs
-                    Critic.Update(m, a, c, rmsd);
+                    Critic.Update(m);
                 }
                 //Train generator
                 double[] test = new double[resolution * resolution];
@@ -157,22 +138,10 @@ namespace WGAN1
                     var latentspace = Maths.RandomGaussian(r, LatentSize);
                     test = Generator.GenerateSample(latentspace);
                     Critic.Calculate(test);
-                    //Backprop critic layer
-                    for (int jj = Critic.NumLayers - 1; jj >= 0; jj--)
-                    {
-                        //If an output layer
-                        if (jj == Critic.NumLayers - 1)
-                        { 
-                            Critic.Layers[Critic.NumLayers - 1].Backprop(realanswer); 
-                        }
-                        else 
-                        { 
-                            Critic.Layers[jj].Backprop(Critic.Layers[jj + 1]);
-                        }
-                    }
-                    Generator.CalcGradients(latentspace, -99, Critic.Layers[0]);
+                    Critic.CalcGradients(test, 1, Critic.Layers[0], false);
+                    Generator.CalcGradients(latentspace, -99, Critic.Layers[0], true);
                 }
-                Generator.Update(m, a, c, rmsd);
+                Generator.Update(m);
                 //Update image (if applicable)
                 if (imgupdateiterator >= imgspeed)
                 {
@@ -228,23 +197,27 @@ namespace WGAN1
         /// </summary>
         /// <param name="input">The input of the network</param>
         /// <param name="loss">The loss of the NN</param>
-        public void CalcGradients(double[] input, double loss, iLayer critic)
+        public void CalcGradients(double[] input, double correct, iLayer critic, bool calcgradients)
         {
-            //Backpropegate
-            for (int jj = NumLayers - 1; jj >= 0; jj--)
+            //Backprop
+            for (int i = NumLayers - 1; i >= 0; i--)
             {
-                //If not an output layer
-                if (jj != NumLayers - 1) { Layers[jj].Backprop(Layers[jj + 1]); continue; }
-                if (loss != -99) { Layers[jj].Backprop(loss); continue; }
-                //Backprop generator's errors from the critic
-                if (!(critic is null)) { Layers[jj].Backprop(critic); continue; }
-                throw new Exception("Invalid inputs");
-            }
-            //Descend
-            for (int jj = 0; jj < NumLayers; jj++)
-            {
-                if (jj == 0) { Layers[jj].Descend(input, false); }
-                else { Layers[jj].Descend(Layers[jj - 1].Values, jj == NumLayers - 1); }
+                bool isoutput; iLayer outputlayer;
+                //If the output layer is also the critic's
+                //It backprops off of the correctness of its identification of the sample
+                if (critic is null) 
+                { 
+                    isoutput = i == Layers.Count - 1; 
+                    outputlayer = isoutput ? null : Layers[i + 1];
+                }
+                //Otherwise it backprops off of the critic's interpretaton of the sample
+                else
+                {
+                    isoutput = false;
+                    outputlayer = i == Layers.Count - 1 ? critic : Layers[i + 1];  
+                }
+                double[] inputvals = i == 0 ? input : Layers[i - 1].Values;
+                Layers[i].Backprop(inputvals, outputlayer, isoutput, correct, calcgradients);
             }
         }
         /// <summary>
@@ -254,11 +227,11 @@ namespace WGAN1
         /// <param name="a">Learning rate</param>
         /// <param name="c">Clipping parameter</param>
         /// <param name="rmsd">RMSProp decay parameter</param>
-        public void Update(int m, double a, double c, double rmsd)
+        public void Update(int m)
         {
             for (int i = 0; i < NumLayers; i++)
             {
-                Layers[i].Descend(m, a, c, rmsd);
+                Layers[i].Descend(m);
             }
         }
         double[] GenerateSample(double[] latentspace)

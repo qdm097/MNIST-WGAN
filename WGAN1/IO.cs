@@ -106,13 +106,16 @@ namespace WGAN1
             for (int i = 0; i < nn.NumLayers; i++)
             {
                 bool fclORcl = int.Parse(text[iterator]) == 0; iterator++;
+                int kernelsize = 0;
+                if (!fclORcl) { kernelsize = int.Parse(text[iterator]); iterator++; }
                 int LayerCount = int.Parse(text[iterator]); iterator++;
                 int InputLayerCount = int.Parse(text[iterator]); iterator++;
 
                 if (fclORcl) { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); }
                 else 
                 { 
-                    nn.Layers.Add(new ConvolutionLayer(LayerCount, InputLayerCount)); 
+                    nn.Layers.Add(new ConvolutionLayer(kernelsize, InputLayerCount)); 
+                    nn.Layers[i].Length = LayerCount;
                     (nn.Layers[i] as ConvolutionLayer).COG = COG;
                 }
 
@@ -139,7 +142,8 @@ namespace WGAN1
             sw.Write(nn.NumLayers + ",");
             for (int i = 0; i < nn.NumLayers; i++)
             {
-                sw.Write((nn.Layers[i] is FullyConnectedLayer ? 0 : 1) + "," 
+                sw.Write((nn.Layers[i] is FullyConnectedLayer ? 0.ToString() : 1.ToString() + ","
+                    + (nn.Layers[i] as ConvolutionLayer).KernelSize.ToString()) + ","
                     + nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ",");
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
