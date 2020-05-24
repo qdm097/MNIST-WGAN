@@ -266,8 +266,8 @@ namespace WGAN1
             var list = new List<string>();
             if (COG.Checked)
             {
-                list.Add("c");
-                list.Add("c");
+                list.Add("f");
+                list.Add("f");
                 list.Add("f");
                 list.Add("f");
                 list.Add("f");
@@ -276,8 +276,8 @@ namespace WGAN1
             {
                 list.Add("f");
                 list.Add("f");
-                list.Add("c");
-                list.Add("c");
+                list.Add("f");
+                list.Add("f");
                 list.Add("f");
             }
             return list;
@@ -287,19 +287,19 @@ namespace WGAN1
             var list = new List<int>();
             if (COG.Checked)
             {
-                list.Add(3);
-                list.Add(2);
-                list.Add(36);
-                list.Add(17);
+                list.Add(500);
+                list.Add(500);
+                list.Add(100);
+                list.Add(100);
                 list.Add(1);
             }
             else
             {
-                list.Add(49);
                 list.Add(100);
-                list.Add(3);
-                list.Add(2);
-                list.Add(28 * 28);
+                list.Add(100);
+                list.Add(500);
+                list.Add(500);
+                list.Add(784);
             }
             return list;
         }
@@ -307,7 +307,7 @@ namespace WGAN1
         {
             var types = new List<string>();
             var counts = new List<int>();
-            LayerLB.Items.Clear();
+            if (ActiveOrInactive) { LayerLB.Items.Clear(); }
 
             foreach (iLayer l in desired.Layers)
             {
@@ -316,7 +316,7 @@ namespace WGAN1
                 if (l is FullyConnectedLayer) { types.Add("f"); name = "Fully Connected"; }
                 if (l is ConvolutionLayer) { types.Add("c"); name = "Convolution"; len = (l as ConvolutionLayer).KernelSize; }
                 counts.Add(len);
-                LayerLB.Items.Add("[" + (counts.Count - 1).ToString() + "] " + name + ", " + len.ToString());
+                if (ActiveOrInactive) { LayerLB.Items.Add("[" + (counts.Count - 1).ToString() + "] " + name + ", " + len.ToString()); }
             }
             if (ActiveOrInactive)
             {

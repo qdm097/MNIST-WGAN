@@ -40,7 +40,15 @@ namespace WGAN1
         }
         public static double Tanh(double number)
         {
-            return (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
+            double x = (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
+            if (x == 0)
+            {
+                return 1E-20;
+            }
+            else
+            {
+                return x;
+            }
         }
         public static double TanhDerriv(double number)
         {

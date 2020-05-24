@@ -11,7 +11,6 @@ namespace WGAN1
     {
         //Kernel
         public double[,] Weights { get; set; }
-        public int[,] Mask { get; set; }
         //Whether this layer belongs to a [C]ritic [O]r [G]enerator
         public bool COG { get; set; }
         public int Length { get; set; }
@@ -19,7 +18,6 @@ namespace WGAN1
         public int InputLength { get; set; }
         double[,] RMSGrad { get; set; }
         public double[] Errors { get; set; }
-        public double[] IntermediaryErrors { get; set; }
         double[,] Gradients { get; set; }
         public double[] ZVals { get; set; }
         public double[] Values { get; set; }
@@ -29,6 +27,7 @@ namespace WGAN1
         public ConvolutionLayer(int kernelsize, int inputsize)
         {
             InputLength = inputsize;
+            Length = kernelsize * kernelsize;
             KernelSize = kernelsize;
             Weights = new double[KernelSize, KernelSize];
             RMSGrad = new double[KernelSize, KernelSize];
@@ -54,7 +53,7 @@ namespace WGAN1
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
-                    double gradient = Gradients[i, ii] * (-2d / batchsize);
+                    double gradient = Gradients[i, ii] * (-2d / batchsize); 
                     double update = NN.LearningRate * gradient;
                     //Root mean square propegation
                     if (NN.UseRMSProp)
@@ -93,30 +92,25 @@ namespace WGAN1
             }
             if (outputlayer is ConvolutionLayer)
             {
+                
                 var CLOutput = outputlayer as ConvolutionLayer;
                 //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
                 
                 //Critic upscales to find errors
-                if (COG) { Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))); }
+                if ((outputlayer as ConvolutionLayer).COG) { Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))); }
                 //Generator downscales to find them
                 else { Errors = Maths.Convert(Flip(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
                 
             }
             //Gradients = Convolve(Maths.Convert(Errors), Input);
-            
+
             if (COG && calcgradients) { Gradients = Convolve(Maths.Convert(Errors), Input); }
             //No idea if this is accurate, but it works
-            if (!COG && calcgradients) { 
-
-
-
-                //WORKING HERE
-
-
-
-                Gradients = Convolve(Input, Maths.Convert(Errors)); 
+            if (!COG && calcgradients)
+            {
+                Gradients = Convolve(Input, Maths.Convert(Errors));
             }
-            
+
         }
         /// <summary>
         /// Calculates the dot product of the kernel and input matrix.
@@ -145,7 +139,6 @@ namespace WGAN1
             int kernelsize = filter.GetLength(0);
             int length = (input.GetLength(0) / StepSize) - kernelsize + 1;
             int width = (input.GetLength(1) / StepSize) - kernelsize + 1;
-
             double[,] output = new double[length, width];
             for (int i = 0; i < length; i++)
             {
@@ -209,13 +202,12 @@ namespace WGAN1
             int padsize = KernelSize - 1;
 
             var output = new double[inputxsize + (2 * padsize), inputysize + (2 * padsize)];
-            Mask = new int[inputxsize + (2 * padsize), inputysize + (2 * padsize)];
 
             for (int i = 0; i < inputxsize; i++)
             {
                 for (int ii = 0; ii < inputysize; ii++)
                 {
-                    output[i + padsize, ii + padsize] = input[i, ii]; Mask[i + padsize, ii + padsize] = 1;
+                    output[i + padsize, ii + padsize] = input[i, ii];
                 }
             }
             return output;

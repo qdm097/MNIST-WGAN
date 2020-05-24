@@ -68,7 +68,7 @@ namespace WGAN1
             Random r = new Random();
             //What values are correct in the critic
             double realanswer = 1;
-            double fakeanswer = 0;
+            double fakeanswer = -1;
             
             while (Training)
             {
@@ -138,7 +138,7 @@ namespace WGAN1
                     var latentspace = Maths.RandomGaussian(r, LatentSize);
                     test = Generator.GenerateSample(latentspace);
                     Critic.Calculate(test);
-                    Critic.CalcGradients(test, 1, Critic.Layers[0], false);
+                    Critic.CalcGradients(test, 1, null, false);
                     Generator.CalcGradients(latentspace, -99, Critic.Layers[0], true);
                 }
                 Generator.Update(m);
