@@ -16,7 +16,7 @@ namespace WGAN1
         public List<int> InactiveLayerCounts { get; set; }
         NN Critic;
         NN Generator;
-        int batchsize = 5;
+        int batchsize = 64;
         int ctogratio = 5;
         int imgspeed = 0;
 
@@ -56,6 +56,12 @@ namespace WGAN1
             }
             catch
             {
+                LayerTypes = DefaultTypes();
+                LayerCounts = DefaultCounts();
+                NN newnn = ResetNN(true);
+                RefreshListBoxes(newnn, true);
+                NN newnn2 = ResetNN(false);
+                RefreshListBoxes(newnn2, false);
                 ResetBtn_Click(this, new EventArgs());
             }
             RefreshListBoxes(Generator, true);
@@ -289,17 +295,17 @@ namespace WGAN1
             {
                 list.Add(500);
                 list.Add(500);
-                list.Add(100);
-                list.Add(100);
+                list.Add(500);
+                list.Add(500);
                 list.Add(1);
             }
             else
             {
-                list.Add(100);
-                list.Add(100);
                 list.Add(500);
                 list.Add(500);
-                list.Add(784);
+                list.Add(500);
+                list.Add(500);
+                list.Add(28 * 28);
             }
             return list;
         }
@@ -446,10 +452,10 @@ namespace WGAN1
         {
             LayerTypes = DefaultTypes();
             LayerCounts = DefaultCounts();
-            NN newnn = ResetNN();
+            NN newnn = ResetNN(COG.Checked);
             RefreshListBoxes(newnn, true);
         }
-        private NN ResetNN()
+        private NN ResetNN(bool cog)
         {
             NN nn = new NN();
             if (LayerTypes is null || LayerTypes.Count == 0)
@@ -457,8 +463,8 @@ namespace WGAN1
                 LayerTypes = DefaultTypes();
                 LayerCounts = DefaultCounts();
             }
-            nn.Init(GenerateLayers(COG.Checked), COG.Checked);
-            IO.Write(nn, COG.Checked);
+            nn.Init(GenerateLayers(cog), cog);
+            IO.Write(nn, cog);
             return nn;
         }
 
@@ -475,7 +481,7 @@ namespace WGAN1
             {
                 DefaultBtn_Click(sender, e); return;
             }
-            NN newnn = ResetNN();
+            NN newnn = ResetNN(COG.Checked);
             RefreshListBoxes(newnn, true);
         }
     }

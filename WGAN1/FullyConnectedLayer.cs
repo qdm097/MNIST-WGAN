@@ -68,14 +68,15 @@ namespace WGAN1
                         WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (gradient * gradient));
                         update = (NN.LearningRate / Math.Sqrt(WRMSGrad[i, ii])) * gradient;
                     }
+                    //Update weight and average
+                    Weights[i, ii] -= update;
+                    AvgGradient -= update;
                     //Gradient clipping
                     if (NN.UseClipping)
                     {
-                        if (update > NN.ClipParameter) { update = NN.ClipParameter; }
-                        if (update < -NN.ClipParameter) { update = -NN.ClipParameter; }
+                        if (Weights[i, ii] > NN.ClipParameter) { Weights[i, ii] = NN.ClipParameter; }
+                        if (Weights[i, ii] < -NN.ClipParameter) { Weights[i, ii] = -NN.ClipParameter; }
                     }
-                    //Update weight and average
-                    Weights[i, ii] -= update;
                 }
                 //Normal gradient descent update
                 double bgradient = BiasGradient[i] * (-2d / batchsize);

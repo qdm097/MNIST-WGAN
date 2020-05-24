@@ -12,11 +12,11 @@ namespace WGAN1
     {
         public int NumLayers { get; set; }
         public List<iLayer> Layers { get; set; }
-        public static double LearningRate = .0000146;
+        public static double LearningRate = 0.00005;
         public static double RMSDecay = .9;
         public static bool UseRMSProp = true;
         public static bool UseClipping = false;
-        public static double ClipParameter = 1;
+        public static double ClipParameter = .1;
         public double BatchSize { get; set; }
         public static bool Training = false;
         public static bool Clear = false;
@@ -66,17 +66,19 @@ namespace WGAN1
             int imgupdateiterator = 0;
             //The generator of the latentspace
             Random r = new Random();
-            //What values are correct in the critic
-            double realanswer = 1;
-            double fakeanswer = -1;
             
             while (Training)
             {
                 double totalrealmean = 0;
                 double totalrealstddev = 0;
                 //Train critic x times per 1 of generator
+                //The generator's Wassersetin Loss
+                double GWLoss = 0;
                 for (int i = 0; i < ctg; i++)
                 {
+                    //The critic's Wasserstein Loss
+                    double CWLoss = 0;
+                    //Batch norm stuff
                     double realmean = 0;
                     double realstddev = 0;
 
@@ -104,33 +106,46 @@ namespace WGAN1
                     }
 
                     double overallscore = 0;
-                    //Values for manual verification
+                    //Critic's scores of each type of sample
                     List<double> rscores = new List<double>();
                     List<double> fscores = new List<double>();
+                    //Compute values and loss
+                    //Wasserstein loss = Avg(CScore(real) - CScore(fake))
                     for (int j = 0; j < m; j++)
                     {
-                        //Need to implement Wasserstein Loss = real score - fake score
-
                         //Real image
                         Critic.Calculate(realsamples[j]);
-                        Critic.CalcGradients(realsamples[j], realanswer, null, true);
-                        overallscore += Math.Pow((Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] - realanswer, 2);
                         rscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[0]);
+                        CWLoss += rscores[j];
                         //Fake image
                         Critic.Calculate(fakesamples[j]);
-                        Critic.CalcGradients(fakesamples[j], fakeanswer, null, true);
-                        overallscore += Math.Pow((Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] - fakeanswer, 2);
                         fscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[0]);
+                        CWLoss -= fscores[j];
+                        GWLoss += fscores[j];
                     }
+                    CWLoss /= 2d * m;
+
+                    //Backprop
+                    for (int j = 0; j < m; j++)
+                    {
+                        Critic.CalcGradients(realsamples[j], CWLoss, null, true);
+                        overallscore += (Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] > 0 ? 1 : 0;
+                        Critic.CalcGradients(fakesamples[j], CWLoss, null, true);
+                        overallscore += (Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] < 0 ? 1 : 0;
+                    }
+                    //Update WBs
+                    Critic.Update(m);
+
+                    //Report values to the front end
                     if (Clear) { Critic.Trials = 0; Clear = false; }
-                    //overallscore /= m;
-                    overallscore = Math.Sqrt(overallscore / m);
+                    overallscore = (double)(overallscore) / (2 * m);
                     double ratio = (double)Critic.Trials / (Critic.Trials + 1);
                     Critic.Trials++;
                     Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (overallscore * (1d / (Critic.Trials)));
-                    //Update WBs
-                    Critic.Update(m);
                 }
+                //Adjust loss for batch size and critic to generator ratio
+                GWLoss /= 2d * m * ctg;
+
                 //Train generator
                 double[] test = new double[resolution * resolution];
                 for (int i = 0; i < m; i++)
@@ -138,8 +153,9 @@ namespace WGAN1
                     var latentspace = Maths.RandomGaussian(r, LatentSize);
                     test = Generator.GenerateSample(latentspace);
                     Critic.Calculate(test);
-                    Critic.CalcGradients(test, 1, null, false);
-                    Generator.CalcGradients(latentspace, -99, Critic.Layers[0], true);
+                    //Backprop through the critic to the generator
+                    Critic.CalcGradients(test, GWLoss, null, false);
+                    Generator.CalcGradients(latentspace, GWLoss, Critic.Layers[0], true);
                 }
                 Generator.Update(m);
                 //Update image (if applicable)

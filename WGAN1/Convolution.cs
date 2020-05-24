@@ -61,13 +61,13 @@ namespace WGAN1
                         RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (gradient * gradient));
                         update = (NN.LearningRate / Math.Sqrt(RMSGrad[i, ii])) * gradient;
                     }
+                    Weights[i, ii] -= update;
                     //Gradient clipping
                     if (NN.UseClipping)
                     {
-                        if (update > NN.ClipParameter) { update = NN.ClipParameter; }
-                        if (update < -NN.ClipParameter) { update = -NN.ClipParameter; }
+                        if (Weights[i, ii] > NN.ClipParameter) { Weights[i, ii] = NN.ClipParameter; }
+                        if (Weights[i, ii] < -NN.ClipParameter) { Weights[i, ii] = -NN.ClipParameter; }
                     }
-                    Weights[i, ii] -= update;
                     AvgUpdate -= update;
                 }
             }
