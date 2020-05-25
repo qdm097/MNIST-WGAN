@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Reflection.Emit;
 
 namespace WGAN1
 {
@@ -22,14 +23,15 @@ namespace WGAN1
         private static string ImagePath = Testing ? TestImagePath : TrainImagePath;
         static int LabelOffset = 8;
         static int ImageOffset = 16;
+        public static bool Reset = false;
         static int Resolution = 28;
 
         public static double[] FindNextNumber(int number)
         {
             //Find the next number
             while(ReadNextLabel() != number)
-            { 
-                ImageOffset++; 
+            {
+                ImageOffset += 784; 
             }
             //Return the image found at the now found index
             return ReadNextImage();
@@ -43,7 +45,7 @@ namespace WGAN1
 
             FileStream fs = File.OpenRead(LabelPath);
             //Reset parameters and decrement NN hyperparameters upon new epoch (currently disabled)
-            if (!(LabelOffset < fs.Length)) { LabelOffset = 8; ImageOffset = 16; }
+            if (!(LabelOffset < fs.Length)) { LabelOffset = 8; ImageOffset = 16; Reset = true; }
 
             fs.Position = LabelOffset;
             byte[] b = new byte[1];
@@ -67,7 +69,7 @@ namespace WGAN1
             //Read image
             FileStream fs = File.OpenRead(ImagePath);
             //Reset parameters and decrement NN hyperparameters upon new epoch (currently disabled)
-            if (!(ImageOffset < fs.Length)) { ImageOffset = 16; LabelOffset = 8; }
+            if (!(ImageOffset < fs.Length)) { ImageOffset = 16; LabelOffset = 8; Reset = true; }
             fs.Position = ImageOffset;
             byte[] b = new byte[Resolution * Resolution];
             try
@@ -105,9 +107,16 @@ namespace WGAN1
             int iterator = 1;
             for (int i = 0; i < nn.NumLayers; i++)
             {
-                bool fclORcl = int.Parse(text[iterator]) == 0; iterator++;
+                bool fclORcl = text[iterator] == "0"; iterator++;
                 int kernelsize = 0;
-                if (!fclORcl) { kernelsize = int.Parse(text[iterator]); iterator++; }
+                bool downorup = false;
+                int stride = 0;
+                if (!fclORcl)
+                { 
+                    kernelsize = int.Parse(text[iterator]); iterator++;
+                    downorup = text[iterator] == "1"; iterator++;
+                    stride = int.Parse(text[iterator]); iterator++;
+                }
                 int LayerCount = int.Parse(text[iterator]); iterator++;
                 int InputLayerCount = int.Parse(text[iterator]); iterator++;
 
@@ -116,7 +125,8 @@ namespace WGAN1
                 { 
                     nn.Layers.Add(new ConvolutionLayer(kernelsize, InputLayerCount)); 
                     nn.Layers[i].Length = LayerCount;
-                    (nn.Layers[i] as ConvolutionLayer).COG = COG;
+                    (nn.Layers[i] as ConvolutionLayer).DownOrUp = downorup;
+                    (nn.Layers[i] as ConvolutionLayer).Stride = stride;
                 }
 
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
@@ -142,17 +152,25 @@ namespace WGAN1
             sw.Write(nn.NumLayers + ",");
             for (int i = 0; i < nn.NumLayers; i++)
             {
-                sw.Write((nn.Layers[i] is FullyConnectedLayer ? 0.ToString() : 1.ToString() + ","
-                    + (nn.Layers[i] as ConvolutionLayer).KernelSize.ToString()) + ","
-                    + nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ",");
+                if (nn.Layers[i] is FullyConnectedLayer)
+                {
+                    sw.Write("0,");
+                }
+                else
+                {
+                    sw.Write("1," + (nn.Layers[i] as ConvolutionLayer).KernelSize.ToString() + ","
+                        + ((nn.Layers[i] as ConvolutionLayer).DownOrUp ? "1" : "0") + ","
+                        + (nn.Layers[i] as ConvolutionLayer).Stride.ToString() + ",");
+                }
+                sw.Write(nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ",");
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
                     for (int jj = 0; jj < nn.Layers[i].Weights.GetLength(1); jj++)
                     {
-                        sw.Write(nn.Layers[i].Weights[j, jj] + ",");
+                        sw.Write(Math.Round(nn.Layers[i].Weights[j, jj], 4) + ",");
                     }
                     if (i != nn.NumLayers - 1 && nn.Layers[i] is FullyConnectedLayer)
-                    { sw.Write((nn.Layers[i] as FullyConnectedLayer).Biases[j] + ","); }
+                    { sw.Write(Math.Round((nn.Layers[i] as FullyConnectedLayer).Biases[j], 4) + ","); }
                 }
             }
             sw.Close();

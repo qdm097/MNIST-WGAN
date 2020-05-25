@@ -11,18 +11,19 @@ namespace WGAN1
     {
         //Kernel
         public double[,] Weights { get; set; }
+        double[,] RMSGrad { get; set; }
+        double[,] Gradients { get; set; }
+        double[,] Updates { get; set; }
         //Whether this layer belongs to a [C]ritic [O]r [G]enerator
-        public bool COG { get; set; }
+        public bool DownOrUp { get; set; }
         public int Length { get; set; }
         public int KernelSize { get; set; }
         public int InputLength { get; set; }
-        double[,] RMSGrad { get; set; }
         public double[] Errors { get; set; }
-        double[,] Gradients { get; set; }
         public double[] ZVals { get; set; }
         public double[] Values { get; set; }
         public double AvgUpdate { get; set; }
-        public static int StepSize = 1;
+        public int Stride { get; set; }
 
         public ConvolutionLayer(int kernelsize, int inputsize)
         {
@@ -46,71 +47,89 @@ namespace WGAN1
             }
             return this;
         }
-        public void Descend(int batchsize)
+        public void Descend(int batchsize, bool batchnorm)
         {
+            //Calculate gradients
+            Updates = new double[KernelSize, KernelSize];
             AvgUpdate = 0;
             for (int i = 0; i < KernelSize; i++)
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
-                    double gradient = Gradients[i, ii] * (-2d / batchsize); 
-                    double update = NN.LearningRate * gradient;
+                    Updates[i, ii] = NN.LearningRate * Gradients[i, ii] * (-2d / batchsize);
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
-                        RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (gradient * gradient));
-                        update = (NN.LearningRate / Math.Sqrt(RMSGrad[i, ii])) * gradient;
+                        RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (Updates[i, ii] * Updates[i, ii]));
+                        Updates[i, ii] = (NN.LearningRate / Math.Sqrt(RMSGrad[i, ii])) * Updates[i, ii];
                     }
-                    Weights[i, ii] -= update;
+                }
+            }
+            //Gradient normalization
+            if (batchnorm) { Updates = Maths.Scale(NN.LearningRate, Maths.Normalize(Updates)); }
+            //Apply updates
+            for (int i = 0; i < KernelSize; i++)
+            {
+                for (int ii = 0; ii < KernelSize; ii++)
+                {
+                    Weights[i, ii] -= Updates[i, ii];
+                    AvgUpdate -= Updates[i, ii];
                     //Gradient clipping
                     if (NN.UseClipping)
                     {
                         if (Weights[i, ii] > NN.ClipParameter) { Weights[i, ii] = NN.ClipParameter; }
                         if (Weights[i, ii] < -NN.ClipParameter) { Weights[i, ii] = -NN.ClipParameter; }
                     }
-                    AvgUpdate -= update;
                 }
             }
             Gradients = new double[KernelSize, KernelSize];
         }
         public void Backprop(double[] input, iLayer outputlayer, bool isoutput, double correct, bool calcgradients)
         {
-            //Calc errors
-            double[,] Input = Maths.Convert(input);
-            if (outputlayer is FullyConnectedLayer)
+            //Calculate error
+            if (isoutput && outputlayer is null)
             {
-                //Errors with respect to the output of the convolution
-                //dl/do
-                Errors = new double[outputlayer.InputLength];
-                for (int k = 0; k < outputlayer.Length; k++)
+                //Leveraging the fact that only the critic uses this formula,
+                //and the critic always has an output size of [1]
+                Errors = new double[1] { 2d * (correct - Values[0])};
+            }
+            else
+            {
+                if (outputlayer is FullyConnectedLayer)
                 {
-                    for (int j = 0; j < outputlayer.InputLength; j++)
+                    //Errors with respect to the output of the convolution
+                    //dl/do
+                    Errors = new double[outputlayer.InputLength];
+                    for (int k = 0; k < outputlayer.Length; k++)
                     {
-                        Errors[j] += outputlayer.Weights[k, j] * Maths.TanhDerriv(outputlayer.ZVals[k]) * outputlayer.Errors[k];
+                        for (int j = 0; j < outputlayer.InputLength; j++)
+                        {
+                            Errors[j] += outputlayer.Weights[k, j] * Maths.TanhDerriv(outputlayer.ZVals[k]) * outputlayer.Errors[k];
+                        }
                     }
                 }
-            }
-            if (outputlayer is ConvolutionLayer)
-            {
-                
-                var CLOutput = outputlayer as ConvolutionLayer;
-                //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
-                
-                //Critic upscales to find errors
-                if ((outputlayer as ConvolutionLayer).COG) { Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))); }
-                //Generator downscales to find them
-                else { Errors = Maths.Convert(Flip(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
-                
-            }
-            //Gradients = Convolve(Maths.Convert(Errors), Input);
+                if (outputlayer is ConvolutionLayer)
+                {
 
-            if (COG && calcgradients) { Gradients = Convolve(Maths.Convert(Errors), Input); }
-            //No idea if this is accurate, but it works
-            if (!COG && calcgradients)
-            {
-                Gradients = Convolve(Input, Maths.Convert(Errors));
+                    var CLOutput = outputlayer as ConvolutionLayer;
+                    //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
+
+                    //Critic upscales to find errors
+                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))); }
+                    //Generator downscales to find them
+                    else { Errors = Maths.Convert(Flip(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+
+                }
+                //Gradients = Convolve(Maths.Convert(Errors), Input);
             }
 
+            if (calcgradients) 
+            { 
+                double[,] Input = Maths.Convert(input);
+                if (DownOrUp) { Gradients = Convolve(Maths.Convert(Errors), Input); }
+                //No idea if this is accurate, but it works
+                else { Gradients = Convolve(Input, Maths.Convert(Errors)); }
+            }
         }
         /// <summary>
         /// Calculates the dot product of the kernel and input matrix.
@@ -119,36 +138,36 @@ namespace WGAN1
         /// <param name="input">The input matrix</param>
         /// <param name="isoutput">Whether to use hyperbolic tangent on the output</param>
         /// <returns></returns>
-        public void Calculate(double[] input, bool isoutput)
+        public void Calculate(double[] input, bool isoutput, bool usetanh)
         {
-            Calculate(Maths.Convert(input), isoutput);
+            Calculate(Maths.Convert(input), isoutput, usetanh);
         }
-        public void Calculate(double[,] input, bool isoutput)
+        public void Calculate(double[,] input, bool isoutput, bool usetanh)
         {
             //Padded upscaling
             //var output = COG ? Convolve(Weights, input) : Convolve(Weights, Pad(input));
 
             //Transposed convolutional upscaling
-            var output = COG ? Convolve(Weights, input) : FullConvolve(Weights, input);
+            var output = DownOrUp ? Convolve(Weights, input) : FullConvolve(Weights, input);
             ZVals = Maths.Convert(output);
-            if (!isoutput) { output = Maths.Tanh(output); }
+            if (!isoutput && usetanh) { output = Maths.Tanh(output); }
             Values = Maths.Convert(output);
         }
         public double[,] Convolve(double[,] filter, double[,] input)
         {
             int kernelsize = filter.GetLength(0);
-            int length = (input.GetLength(0) / StepSize) - kernelsize + 1;
-            int width = (input.GetLength(1) / StepSize) - kernelsize + 1;
+            int length = ((input.GetLength(0) - kernelsize) / Stride) + 1;
+            int width = ((input.GetLength(1) - kernelsize) / Stride) + 1;
             double[,] output = new double[length, width];
-            for (int i = 0; i < length; i++)
+            for (int i = 0; i < length; i += Stride)
             {
-                for (int ii = 0; ii < width; ii++)
+                for (int ii = 0; ii < width; ii += Stride)
                 {
-                    for (int j = 0; j < kernelsize; j += StepSize)
+                    for (int j = 0; j < kernelsize; j++)
                     {
-                        for (int jj = 0; jj < kernelsize; jj += StepSize)
+                        for (int jj = 0; jj < kernelsize; jj++)
                         {
-                            output[i, ii] += input[(i * StepSize) + j, (ii * StepSize) + jj] * filter[j, jj];
+                            output[i, ii] += input[(i * Stride) + j, (ii * Stride) + jj] * filter[j, jj];
                         }
                     }
                 }
@@ -163,18 +182,18 @@ namespace WGAN1
         /// <returns></returns>
         public double[,] FullConvolve(double[,] filter, double[,] input)
         {
-            var kernelsize = input.GetLength(0) + filter.GetLength(0) - 1;
+            var kernelsize = (Stride * (input.GetLength(0) - 1)) + filter.GetLength(0);
             double[,] output = new double[kernelsize, kernelsize];
-            for (int i = 0; i < input.GetLength(0); i += StepSize)
+            for (int i = 0; i < input.GetLength(0); i += Stride)
             {
-                for (int ii = 0; ii < input.GetLength(1); ii += StepSize)
+                for (int ii = 0; ii < input.GetLength(1); ii += Stride)
                 {
-                    for (int j = 0; j < filter.GetLength(0); j += StepSize)
+                    for (int j = 0; j < filter.GetLength(0); j++)
                     {
-                        for (int jj = 0; jj < filter.GetLength(1); jj += StepSize)
+                        for (int jj = 0; jj < filter.GetLength(1); jj++)
                         {
-                            if ((i * StepSize) + j >= kernelsize || (ii * StepSize) + jj >= kernelsize) { continue; }
-                            output[(i * StepSize) + j, (ii * StepSize) + jj] += input[i, ii] * filter[j, jj];
+                            if ((i * Stride) + j >= kernelsize || (ii * Stride) + jj >= kernelsize) { continue; }
+                            output[(i * Stride) + j, (ii * Stride) + jj] += input[i, ii] * filter[j, jj];
                         }
                     }
                 }

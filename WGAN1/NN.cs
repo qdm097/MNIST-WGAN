@@ -16,7 +16,7 @@ namespace WGAN1
         public static double RMSDecay = .9;
         public static bool UseRMSProp = true;
         public static bool UseClipping = false;
-        public static double ClipParameter = .1;
+        public static double ClipParameter = 10;
         public double BatchSize { get; set; }
         public static bool Training = false;
         public static bool Clear = false;
@@ -29,18 +29,13 @@ namespace WGAN1
         /// </summary>
         /// <param name="l">Number of layers in the network</param>
         /// <param name="wcs">Number of weights/biases in the network</param>
-        public NN Init(List<iLayer> layers, bool cog)
+        public NN Init(List<iLayer> layers)
         {
             Layers = layers;
             NumLayers = Layers.Count;
             for (int i = 0; i < NumLayers; i++)
             {
                 Layers[i].Init(i == NumLayers -1);
-                if (Layers[i] is ConvolutionLayer) 
-                { 
-                    if (cog) { (Layers[i] as ConvolutionLayer).COG = true; }
-                    else { (Layers[i] as ConvolutionLayer).COG = false; }
-                }
             }
             return this;
         }
@@ -61,9 +56,9 @@ namespace WGAN1
         /// <param name="activeform">The form where the image will be updated</param>
         /// <param name="imgspeed">How quickly the image should update as a function of the algorithm</param>
         public static void Train(NN Critic, NN Generator, int LatentSize, int resolution,
-             int m, int ctg, int num, Form1 activeform, int imgspeed)
+             int m, int ctg, int num, Form1 activeform, int imgspeed, bool inputnorm, bool gradientnorm)
         {
-            int imgupdateiterator = 0;
+            int formupdateiterator = 0;
             //The generator of the latentspace
             Random r = new Random();
             
@@ -73,7 +68,8 @@ namespace WGAN1
                 double totalrealstddev = 0;
                 //Train critic x times per 1 of generator
                 //The generator's Wassersetin Loss
-                double GWLoss = 0;
+                double AvgFakeScore = 0;
+               
                 for (int i = 0; i < ctg; i++)
                 {
                     //The critic's Wasserstein Loss
@@ -88,7 +84,7 @@ namespace WGAN1
                     for (int ii = 0; ii < m; ii++)
                     {
                         //Generate fake image from latent space
-                        fakesamples.Add(Generator.GenerateSample(Maths.RandomGaussian(r, LatentSize)));
+                        fakesamples.Add(Generator.GenerateSample(Maths.RandomGaussian(r, LatentSize), inputnorm));
                         //Find next image
                         realsamples.Add(IO.FindNextNumber(num));
                         //Calculate values to help scale the fakes
@@ -114,52 +110,55 @@ namespace WGAN1
                     for (int j = 0; j < m; j++)
                     {
                         //Real image
-                        Critic.Calculate(realsamples[j]);
+                        Critic.Calculate(realsamples[j], inputnorm);
                         rscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[0]);
                         CWLoss += rscores[j];
                         //Fake image
-                        Critic.Calculate(fakesamples[j]);
+                        Critic.Calculate(fakesamples[j], inputnorm);
                         fscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[0]);
                         CWLoss -= fscores[j];
-                        GWLoss += fscores[j];
+                        AvgFakeScore += fscores[j];
                     }
                     CWLoss /= 2d * m;
-
+                    double GError = 0;
                     //Backprop
                     for (int j = 0; j < m; j++)
                     {
                         Critic.CalcGradients(realsamples[j], CWLoss, null, true);
-                        overallscore += (Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] > 0 ? 1 : 0;
-                        Critic.CalcGradients(fakesamples[j], CWLoss, null, true);
-                        overallscore += (Critic.Layers[Critic.NumLayers - 1] as FullyConnectedLayer).Values[0] < 0 ? 1 : 0;
+                        overallscore += Critic.Layers[Critic.NumLayers - 1].Values[0] > 0 ? 1 : 0;
+                        Critic.CalcGradients(fakesamples[j], -CWLoss, null, true);
+                        overallscore += Critic.Layers[Critic.NumLayers - 1].Values[0] < 0 ? 1 : 0;
+                        GError += Critic.Layers[Critic.NumLayers - 1].Values[0] > 0 ? 1 : 0;
                     }
                     //Update WBs
-                    Critic.Update(m);
+                    Critic.Update(m, gradientnorm);
 
                     //Report values to the front end
-                    if (Clear) { Critic.Trials = 0; Clear = false; }
-                    overallscore = (double)(overallscore) / (2 * m);
-                    double ratio = (double)Critic.Trials / (Critic.Trials + 1);
+                    if (Clear) { Critic.Trials = 0; Generator.Trials = 0; Clear = false; }
+                    overallscore /= (2 * m);
+                    GError /= m;
                     Critic.Trials++;
+                    Generator.Trials++;
                     Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (overallscore * (1d / (Critic.Trials)));
+                    Generator.Error = (Generator.Error * ((Generator.Trials) / (Generator.Trials + 1d))) + (GError * (1d / (Generator.Trials)));
                 }
                 //Adjust loss for batch size and critic to generator ratio
-                GWLoss /= 2d * m * ctg;
+                AvgFakeScore /= m * ctg;
 
                 //Train generator
                 double[] test = new double[resolution * resolution];
                 for (int i = 0; i < m; i++)
                 {
                     var latentspace = Maths.RandomGaussian(r, LatentSize);
-                    test = Generator.GenerateSample(latentspace);
-                    Critic.Calculate(test);
+                    test = Generator.GenerateSample(latentspace, inputnorm);
+                    Critic.Calculate(test, gradientnorm);
                     //Backprop through the critic to the generator
-                    Critic.CalcGradients(test, GWLoss, null, false);
-                    Generator.CalcGradients(latentspace, GWLoss, Critic.Layers[0], true);
+                    Critic.CalcGradients(test, -AvgFakeScore, null, false);
+                    Generator.CalcGradients(latentspace, -AvgFakeScore, Critic.Layers[0], true);
                 }
-                Generator.Update(m);
+                Generator.Update(m, gradientnorm);
                 //Update image (if applicable)
-                if (imgupdateiterator >= imgspeed)
+                if (formupdateiterator >= imgspeed)
                 {
                     //Code that converts normalized generator outputs into an image
                     //Changes distribution of output values to 0-255 (brightness)
@@ -178,12 +177,18 @@ namespace WGAN1
                     activeform.Invoke((Action)delegate
                     {
                         activeform.image = image; 
-                        activeform.CScore = Critic.Error.ToString(); 
+                        activeform.CScore = Critic.Error.ToString();
+                        activeform.GScore = Generator.Error.ToString();
                         if (Critic.Error > Form1.Cutoff) { Training = false; }
+                        if (IO.Reset)
+                        {
+                            IO.Reset = false;
+                            activeform.Epoch++;
+                        }
                     }); 
-                    imgupdateiterator = 0;
+                    formupdateiterator = 0;
                 }
-                imgupdateiterator++;
+                formupdateiterator++;
             }
             if (Save)
             {
@@ -197,15 +202,23 @@ namespace WGAN1
                 activeform.DoneTraining = true;
                 //Reset errors
                 activeform.CScore = null;
+                activeform.GScore = null;
             });
         }
-        public void Calculate(double[] input)
+        public void Calculate(double[] input, bool batchnorm)
         {
             //Calculate
-            Layers[0].Calculate(input, false);
-            for (int jj = 1; jj < NumLayers; jj++)
+            Layers[0].Calculate(input, false, batchnorm);
+            for (int i = 1; i < NumLayers; i++)
             {
-                Layers[jj].Calculate(Layers[jj - 1].Values, jj == NumLayers - 1);
+                if (batchnorm)
+                {
+                    Layers[i].Calculate(Maths.Normalize(Layers[i - 1].Values), i == NumLayers - 1, false);
+                }
+                else
+                {
+                    Layers[i].Calculate(Layers[i - 1].Values, i == NumLayers - 1, batchnorm);
+                }
             }
         }
         /// <summary>
@@ -243,20 +256,28 @@ namespace WGAN1
         /// <param name="a">Learning rate</param>
         /// <param name="c">Clipping parameter</param>
         /// <param name="rmsd">RMSProp decay parameter</param>
-        public void Update(int m)
+        public void Update(int m, bool batchnorm)
         {
             for (int i = 0; i < NumLayers; i++)
             {
-                Layers[i].Descend(m);
+                Layers[i].Descend(m, batchnorm);
             }
         }
-        double[] GenerateSample(double[] latentspace)
+        double[] GenerateSample(double[] latentspace, bool batchnorm)
         {
             double[] image = latentspace;
             for (int i = 0; i < NumLayers; i++)
             {
-                Layers[i].Calculate(image, i == NumLayers - 1);
-                image = Layers[i].Values;
+                if (batchnorm)
+                {
+                    Layers[i].Calculate(image, i == NumLayers - 1, false);
+                    image = Maths.Normalize(Layers[i].Values);
+                }
+                else
+                {
+                    Layers[i].Calculate(image, i == NumLayers - 1, true);
+                    image = Layers[i].Values;
+                }
             }
             return image;
         }

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace WGAN1
 {
@@ -16,18 +17,22 @@ namespace WGAN1
         public List<int> InactiveLayerCounts { get; set; }
         NN Critic;
         NN Generator;
-        int batchsize = 64;
+        int batchsize = 10;
         int ctogratio = 5;
         int imgspeed = 0;
 
         int resolution = 28;
-        int latentsize = 36;
+        int latentsize = 25;
         //The maximum RMSE allowed before the network stops learning
         public static int Cutoff = 10;
         bool dt;
         public bool DoneTraining { get { return dt; } set { dt = value; if (dt) { TrainBtn.Enabled = true; dt = false; } } }
         string cs;
         public string CScore { get { return cs; } set { cs = value; CScoreTxt.Text = value; } }
+        string gs;
+        public string GScore { get { return gs; } set { gs = value; GScoreTxt.Text = value; } }
+        int e;
+        public int Epoch { get { return e; } set { e = value; EpochTxt.Text = value.ToString(); } }
         int[,] img;
         public int[,] image {
             get { return img; }
@@ -44,6 +49,8 @@ namespace WGAN1
             LayerTypeCB.Items.Add("Convolution");
             LayerTypeCB.SelectedIndex = 0;
 
+            Epoch = 0;
+            InputNormCB.Checked = true;
             ClipTxt.Text = NN.ClipParameter.ToString();
             AlphaTxt.Text = NN.LearningRate.ToString();
             RMSDTxt.Text = NN.RMSDecay.ToString();
@@ -56,16 +63,20 @@ namespace WGAN1
             }
             catch
             {
-                LayerTypes = DefaultTypes();
-                LayerCounts = DefaultCounts();
-                NN newnn = ResetNN(true);
-                RefreshListBoxes(newnn, true);
-                NN newnn2 = ResetNN(false);
-                RefreshListBoxes(newnn2, false);
+                LayerTypes = DefaultTypes(false);
+                LayerCounts = DefaultCounts(false);
+                InactiveLayerTypes = DefaultTypes(true);
+                InactiveLayerCounts = DefaultCounts(true);
+
                 ResetBtn_Click(this, new EventArgs());
+
+                RefreshListBoxes(Critic, false);
+                RefreshListBoxes(Generator, true);
             }
             RefreshListBoxes(Generator, true);
             RefreshListBoxes(Critic, false);
+            //Only want this shown if a conv layer is selected
+            UpDownCB.Hide();
         }
         private void TrainBtn_Click(object sender, EventArgs e)
         {
@@ -73,7 +84,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed);               
+                NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);               
             });
             thread.IsBackground = true;
             thread.Start();
@@ -82,11 +93,12 @@ namespace WGAN1
         {
             if (NN.Training) { NN.Save = false; NN.Training = false; TrainBtn.Enabled = false; }
             //Generator
-            Generator = new NN().Init(GenerateLayers(false), false);
+            Generator = new NN().Init(GenerateLayers(false));
             IO.Write(Generator, false);
             //Critic
-            Critic = new NN().Init(GenerateLayers(true), true);
+            Critic = new NN().Init(GenerateLayers(true));
             IO.Write(Critic, true);
+            Epoch = 0;
         }
         List<iLayer> GenerateLayers(bool COG)
         {
@@ -110,22 +122,26 @@ namespace WGAN1
             {
                 int ncount = layercounts[i];
                 //If a convolution
-                if (layertypes[i] == "c")
+                if (layertypes[i][0] == 'c')
                 {
                     layers.Add(new ConvolutionLayer(ncount, priorsize));
-                    (layers[i] as ConvolutionLayer).COG = COG;
+                    bool downorup = layertypes[i][1] == 'd';
+                   
+                    if (layertypes[i].Length == 3) { (layers[i] as ConvolutionLayer).Stride = int.Parse(layertypes[i][2].ToString()); }
+                    else { (layers[i] as ConvolutionLayer).Stride = 1; }
+                    (layers[i] as ConvolutionLayer).DownOrUp = downorup;
                     //Calculate the padded matrix size (if applicable)
                     int temp = (int)Math.Sqrt(priorsize);
                     
-                    if (COG)
+                    if (downorup)
                     {
                         //Critic decreases the size of the inputted array
-                        priorsize = (int)((temp / ConvolutionLayer.StepSize) - ncount + 1);
+                        priorsize = ((temp - ncount) / (layers[i] as ConvolutionLayer).Stride + 1);
                     }
                     else
                     {
                         //Generator increases the size of the inputted array
-                        priorsize = (int)(temp + ncount - 1);
+                        priorsize = ((layers[i] as ConvolutionLayer).Stride * (temp - 1)) + ncount;
                     }
                     priorsize *= priorsize;
                     continue;
@@ -175,7 +191,7 @@ namespace WGAN1
         }
         private void ClearBtn_Click(object sender, EventArgs e)
         {
-            NN.Clear = true; CScore = null;
+            NN.Clear = true; CScore = null; GScore = null;
         }
         public int[,] Scaler(int[,] input, int scale)
         {
@@ -267,11 +283,12 @@ namespace WGAN1
             }
             return newImage;
         }
-        private List<string> DefaultTypes()
+        private List<string> DefaultTypes(bool cog)
         {
             var list = new List<string>();
-            if (COG.Checked)
+            if (cog)
             {
+                list.Add("f");
                 list.Add("f");
                 list.Add("f");
                 list.Add("f");
@@ -280,6 +297,7 @@ namespace WGAN1
             }
             else
             {
+                list.Add("f");
                 list.Add("f");
                 list.Add("f");
                 list.Add("f");
@@ -288,24 +306,26 @@ namespace WGAN1
             }
             return list;
         }
-        private List<int> DefaultCounts()
+        private List<int> DefaultCounts(bool cog)
         {
             var list = new List<int>();
-            if (COG.Checked)
+            if (cog)
             {
+                list.Add(600);
                 list.Add(500);
-                list.Add(500);
-                list.Add(500);
-                list.Add(500);
+                list.Add(400);
+                list.Add(300);
+                list.Add(200);
                 list.Add(1);
             }
             else
             {
-                list.Add(500);
-                list.Add(500);
-                list.Add(500);
-                list.Add(500);
-                list.Add(28 * 28);
+                list.Add(284);
+                list.Add(384);
+                list.Add(484);
+                list.Add(584);
+                list.Add(684);
+                list.Add(784);
             }
             return list;
         }
@@ -320,7 +340,11 @@ namespace WGAN1
                 string name = null;
                 int len = l.Length;
                 if (l is FullyConnectedLayer) { types.Add("f"); name = "Fully Connected"; }
-                if (l is ConvolutionLayer) { types.Add("c"); name = "Convolution"; len = (l as ConvolutionLayer).KernelSize; }
+                if (l is ConvolutionLayer) 
+                {
+                    types.Add("c" + ((l as ConvolutionLayer).DownOrUp ? "d" : "u"));
+                    name = "Convolution"; len = (l as ConvolutionLayer).KernelSize;
+                }
                 counts.Add(len);
                 if (ActiveOrInactive) { LayerLB.Items.Add("[" + (counts.Count - 1).ToString() + "] " + name + ", " + len.ToString()); }
             }
@@ -339,6 +363,8 @@ namespace WGAN1
         {
             if (LayerLB.SelectedIndex < 0) { return; }
             LayerCountTxt.Text = LayerCounts[LayerLB.SelectedIndex].ToString();
+            if (LayerTypes[LayerLB.SelectedIndex][0] == 'c')
+            { UpDownCB.Show(); UpDownCB.Checked = LayerTypes[LayerLB.SelectedIndex][1] == 'd'; }
         }
 
         private void UpBtn_Click(object sender, EventArgs e)
@@ -399,6 +425,7 @@ namespace WGAN1
             if (LayerTypeCB.Text == "Convolution")
             {
                 type = "c";
+                type.Append(UpDownCB.Checked ? 'u' : 'd');
                 if (result > 10)
                 {
                     MessageBox.Show("Convolution's layer count is squared, must still be between 0 and 100");
@@ -436,6 +463,7 @@ namespace WGAN1
             if (LayerTypeCB.Text == "Convolution")
             {
                 type = "c";
+                type.Append(UpDownCB.Checked ? 'u' : 'd');
                 if (result > 10)
                 {
                     MessageBox.Show("Convolution's layer count is squared, must be between 0 and 10");
@@ -450,8 +478,8 @@ namespace WGAN1
 
         private void DefaultBtn_Click(object sender, EventArgs e)
         {
-            LayerTypes = DefaultTypes();
-            LayerCounts = DefaultCounts();
+            LayerTypes = DefaultTypes(COG.Checked);
+            LayerCounts = DefaultCounts(COG.Checked);
             NN newnn = ResetNN(COG.Checked);
             RefreshListBoxes(newnn, true);
         }
@@ -460,10 +488,10 @@ namespace WGAN1
             NN nn = new NN();
             if (LayerTypes is null || LayerTypes.Count == 0)
             {
-                LayerTypes = DefaultTypes();
-                LayerCounts = DefaultCounts();
+                LayerTypes = DefaultTypes(cog);
+                LayerCounts = DefaultCounts(cog);
             }
-            nn.Init(GenerateLayers(cog), cog);
+            nn.Init(GenerateLayers(cog));
             IO.Write(nn, cog);
             return nn;
         }

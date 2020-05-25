@@ -43,7 +43,7 @@ namespace WGAN1
             double x = (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
             if (x == 0)
             {
-                return 1E-20;
+                return number;
             }
             else
             {
@@ -148,7 +148,52 @@ namespace WGAN1
 
             return output;
         }
+        public static double[,] Normalize(double[,] input)
+        {
+            double mean = 0;
+            double stddev = 0;
+            //Calc mean of data
+            foreach (double d in input) { mean += d; }
+            mean /= input.Length;
+            //Calc std dev of data
+            foreach (double d in input) { stddev += (d - mean) * (d - mean); }
+            stddev /= input.Length;
+            stddev = Math.Sqrt(stddev);
+            //Prevent divide by zero b/c of sigma = 0
+            if (stddev == 0) { stddev = .000001; }
+            double[,] output = new double[input.GetLength(0), input.GetLength(1)];
+            //Calc zscores
+            for (int i = 0; i < output.GetLength(0); i++)
+            {
+                for (int ii = 0; ii < output.GetLength(1); ii++)
+                {
+                    output[i, ii] = (input[i, ii] - mean) / stddev;
+                }
+            }
 
+            return output;
+        }
+        public static double[] Scale(double scale, double[] array)
+        {
+            double[] output = new double[array.Length];
+            for (int i = 0; i < array.Length; i++)
+            {
+                output[i] = array[i] * scale;
+            }
+            return output;
+        }
+        public static double[,] Scale(double scale, double[,] array)
+        {
+            double[,] output = new double[array.GetLength(0), array.GetLength(1)];
+            for (int i = 0; i < array.GetLength(0); i++)
+            {
+                for (int ii = 0; ii < array.GetLength(1); ii++)
+                {
+                    output[i, ii] = array[i, ii] * scale;
+                }
+            }
+            return output;
+        }
         /// <summary>
         /// Calculates the mean of the array
         /// </summary>

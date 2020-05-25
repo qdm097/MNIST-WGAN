@@ -16,14 +16,14 @@ namespace WGAN1
         int InputLength { get; set; }
 
         iLayer Init(bool isoutput);
-        void Descend(int batchsize);
+        void Descend(int batchsize, bool batchnorm);
         /// <summary>
         /// Descent for other layers
         /// </summary>
         /// <param name="input">Previous layer's values</param>
         /// <param name="output">Whether the layer is the output layer</param>
         void Backprop(double[] input, iLayer outputlayer, bool isoutput, double correct, bool calcgradients);
-        void Calculate(double[] input, bool output);
-        void Calculate(double[,] input, bool output);
+        void Calculate(double[] input, bool output, bool usetanh);
+        void Calculate(double[,] input, bool output, bool usetanh);
     }
 }

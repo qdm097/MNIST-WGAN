@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,12 +14,17 @@ namespace WGAN1
         public double[] Values { get; set; }
         public double[] ZVals { get; set; }
         public double[] Errors { get; set; }
+        //Weights
         public double[,] Weights { get; set; }
-        public double[] Biases { get; set; }
         double[,] WRMSGrad { get; set; }
         double[,] WeightGradient { get; set; }
+        double[,] WUpdates { get; set; }
+        //Biases
+        public double[] Biases { get; set; }
         double[] BRMSGrad { get; set; }
         double[] BiasGradient { get; set; }
+        double[] BUpdates { get; set; }
+
         public double AvgGradient { get; set; }
         public FullyConnectedLayer(int l, int il)
         {
@@ -53,24 +59,47 @@ namespace WGAN1
         /// <param name="batchsize">The number of trials run per cycle</param>
         /// <param name="clipparameter">What the max/min </param>
         /// <param name="RMSDecay">How quickly the RMS gradients decay</param>
-        public void Descend(int batchsize)
+        public void Descend(int batchsize, bool batchnorm)
         {
+            //Calculate gradients
+            WUpdates = new double[Length, InputLength];
+            BUpdates = new double[Length];
             for (int i = 0; i < Length; i++)
             {
                 for (int ii = 0; ii < InputLength; ii++)
                 {
                     //Normal gradient descent update
-                    double gradient = WeightGradient[i, ii] * (-2d / batchsize);
-                    double update = NN.LearningRate * gradient;
+                    WUpdates[i, ii] = NN.LearningRate * WeightGradient[i, ii] * (-2d / batchsize);
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
-                        WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (gradient * gradient));
-                        update = (NN.LearningRate / Math.Sqrt(WRMSGrad[i, ii])) * gradient;
+                        WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (WUpdates[i, ii] * WUpdates[i, ii]));
+                        WUpdates[i, ii] = (NN.LearningRate / Math.Sqrt(WRMSGrad[i, ii])) * WUpdates[i, ii];
                     }
+                }
+                //Normal gradient descent update
+                BUpdates[i] = BiasGradient[i] * (-2d / batchsize);
+                //Root mean square propegation
+                if (NN.UseRMSProp)
+                {
+                    BRMSGrad[i] = (BRMSGrad[i] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (BUpdates[i] * BUpdates[i]));
+                    BUpdates[i] = (NN.LearningRate / Math.Sqrt(BRMSGrad[i])) * BUpdates[i];
+                }
+            }
+            //Gradient normalization
+            if (batchnorm) 
+            { 
+                WUpdates = Maths.Scale(NN.LearningRate, Maths.Normalize(WUpdates)); 
+                BUpdates = Maths.Scale(NN.LearningRate, Maths.Normalize(BUpdates)); 
+            }
+            //Apply updates
+            for (int i = 0; i < Length; i++)
+            {
+                for (int ii = 0; ii < InputLength; ii++)
+                {
                     //Update weight and average
-                    Weights[i, ii] -= update;
-                    AvgGradient -= update;
+                    Weights[i, ii] -= WUpdates[i, ii];
+                    AvgGradient -= WUpdates[i, ii];
                     //Gradient clipping
                     if (NN.UseClipping)
                     {
@@ -78,23 +107,13 @@ namespace WGAN1
                         if (Weights[i, ii] < -NN.ClipParameter) { Weights[i, ii] = -NN.ClipParameter; }
                     }
                 }
-                //Normal gradient descent update
-                double bgradient = BiasGradient[i] * (-2d / batchsize);
-                double bupdate = NN.LearningRate * bgradient;
-                //Root mean square propegation
-                if (NN.UseRMSProp)
-                {
-                    BRMSGrad[i] = (BRMSGrad[i] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (bgradient * bgradient));
-                    bupdate = (NN.LearningRate / Math.Sqrt(BRMSGrad[i])) * bgradient;
-                }
+                Biases[i] -= NN.LearningRate * BUpdates[i];
                 //Gradient clipping
                 if (NN.UseClipping)
                 {
-                    if (bupdate > NN.ClipParameter) { bupdate = NN.ClipParameter; }
-                    if (bupdate < -NN.ClipParameter) { bupdate = -NN.ClipParameter; }
+                    if (Biases[i] > NN.ClipParameter) { Biases[i] = NN.ClipParameter; }
+                    if (Biases[i] < -NN.ClipParameter) { Biases[i] = -NN.ClipParameter; }
                 }
-                //Update bias
-                Biases[i] -= bupdate;
             }
             //Reset gradients (but not RMS gradients)
             WeightGradient = new double[Length, InputLength];
@@ -157,7 +176,7 @@ namespace WGAN1
                 }
             }
         }
-        public void Calculate(double[] input, bool output)
+        public void Calculate(double[] input, bool output, bool usetanh)
         {
             var vals = new double[Length];
             for (int k = 0; k < Length; k++)
@@ -172,12 +191,12 @@ namespace WGAN1
                 }
             }
             ZVals = vals;
-            if (!output) { Values = Maths.Tanh(vals); }
+            if (!output && usetanh) { Values = Maths.Tanh(vals); }
             else { Values = vals; }
         }
-        public void Calculate(double[,] input, bool output)
+        public void Calculate(double[,] input, bool output, bool usetanh)
         {
-            Calculate(Maths.Convert(input), output);
+            Calculate(Maths.Convert(input), output, usetanh);
         }
     }
 }

@@ -55,6 +55,13 @@
             this.AddBtn = new System.Windows.Forms.Button();
             this.LayerTypeCB = new System.Windows.Forms.ComboBox();
             this.COG = new System.Windows.Forms.CheckBox();
+            this.label8 = new System.Windows.Forms.Label();
+            this.GScoreTxt = new System.Windows.Forms.TextBox();
+            this.UpDownCB = new System.Windows.Forms.CheckBox();
+            this.InputNormCB = new System.Windows.Forms.CheckBox();
+            this.label9 = new System.Windows.Forms.Label();
+            this.EpochTxt = new System.Windows.Forms.TextBox();
+            this.GradientNormCB = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.NumPB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -68,7 +75,7 @@
             // 
             // AlphaTxt
             // 
-            this.AlphaTxt.Location = new System.Drawing.Point(158, 142);
+            this.AlphaTxt.Location = new System.Drawing.Point(109, 142);
             this.AlphaTxt.Name = "AlphaTxt";
             this.AlphaTxt.Size = new System.Drawing.Size(142, 31);
             this.AlphaTxt.TabIndex = 1;
@@ -77,7 +84,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(153, 114);
+            this.label1.Location = new System.Drawing.Point(105, 114);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(147, 25);
             this.label1.TabIndex = 2;
@@ -86,7 +93,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(158, 176);
+            this.label2.Location = new System.Drawing.Point(131, 176);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(120, 25);
             this.label2.TabIndex = 3;
@@ -95,7 +102,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(158, 238);
+            this.label3.Location = new System.Drawing.Point(137, 238);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(115, 25);
             this.label3.TabIndex = 4;
@@ -103,7 +110,7 @@
             // 
             // RMSDTxt
             // 
-            this.RMSDTxt.Location = new System.Drawing.Point(158, 204);
+            this.RMSDTxt.Location = new System.Drawing.Point(109, 204);
             this.RMSDTxt.Name = "RMSDTxt";
             this.RMSDTxt.Size = new System.Drawing.Size(142, 31);
             this.RMSDTxt.TabIndex = 5;
@@ -111,7 +118,7 @@
             // 
             // MTxt
             // 
-            this.MTxt.Location = new System.Drawing.Point(158, 266);
+            this.MTxt.Location = new System.Drawing.Point(109, 266);
             this.MTxt.Name = "MTxt";
             this.MTxt.Size = new System.Drawing.Size(142, 31);
             this.MTxt.TabIndex = 6;
@@ -120,7 +127,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(158, 300);
+            this.label4.Location = new System.Drawing.Point(9, 300);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(243, 25);
             this.label4.TabIndex = 8;
@@ -128,7 +135,7 @@
             // 
             // CTGTxt
             // 
-            this.CTGTxt.Location = new System.Drawing.Point(158, 328);
+            this.CTGTxt.Location = new System.Drawing.Point(109, 328);
             this.CTGTxt.Name = "CTGTxt";
             this.CTGTxt.Size = new System.Drawing.Size(142, 31);
             this.CTGTxt.TabIndex = 7;
@@ -136,7 +143,7 @@
             // 
             // TrainBtn
             // 
-            this.TrainBtn.Location = new System.Drawing.Point(158, 442);
+            this.TrainBtn.Location = new System.Drawing.Point(109, 442);
             this.TrainBtn.Name = "TrainBtn";
             this.TrainBtn.Size = new System.Drawing.Size(142, 45);
             this.TrainBtn.TabIndex = 9;
@@ -147,7 +154,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(153, 363);
+            this.label5.Location = new System.Drawing.Point(57, 363);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(195, 25);
             this.label5.TabIndex = 11;
@@ -155,7 +162,7 @@
             // 
             // ClipTxt
             // 
-            this.ClipTxt.Location = new System.Drawing.Point(158, 391);
+            this.ClipTxt.Location = new System.Drawing.Point(109, 391);
             this.ClipTxt.Name = "ClipTxt";
             this.ClipTxt.Size = new System.Drawing.Size(142, 31);
             this.ClipTxt.TabIndex = 10;
@@ -164,7 +171,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(153, 519);
+            this.label6.Location = new System.Drawing.Point(104, 519);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(128, 25);
             this.label6.TabIndex = 13;
@@ -172,7 +179,7 @@
             // 
             // CScoreTxt
             // 
-            this.CScoreTxt.Location = new System.Drawing.Point(158, 547);
+            this.CScoreTxt.Location = new System.Drawing.Point(109, 547);
             this.CScoreTxt.Name = "CScoreTxt";
             this.CScoreTxt.ReadOnly = true;
             this.CScoreTxt.Size = new System.Drawing.Size(142, 31);
@@ -180,7 +187,7 @@
             // 
             // ClearBtn
             // 
-            this.ClearBtn.Location = new System.Drawing.Point(82, 595);
+            this.ClearBtn.Location = new System.Drawing.Point(110, 595);
             this.ClearBtn.Name = "ClearBtn";
             this.ClearBtn.Size = new System.Drawing.Size(142, 45);
             this.ClearBtn.TabIndex = 14;
@@ -190,7 +197,7 @@
             // 
             // ResetBtn
             // 
-            this.ResetBtn.Location = new System.Drawing.Point(230, 595);
+            this.ResetBtn.Location = new System.Drawing.Point(258, 595);
             this.ResetBtn.Name = "ResetBtn";
             this.ResetBtn.Size = new System.Drawing.Size(142, 45);
             this.ResetBtn.TabIndex = 15;
@@ -305,11 +312,82 @@
             this.COG.UseVisualStyleBackColor = true;
             this.COG.CheckedChanged += new System.EventHandler(this.COG_CheckedChanged);
             // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(253, 519);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(175, 25);
+            this.label8.TabIndex = 28;
+            this.label8.Text = "Generator RMSE";
+            // 
+            // GScoreTxt
+            // 
+            this.GScoreTxt.Location = new System.Drawing.Point(258, 547);
+            this.GScoreTxt.Name = "GScoreTxt";
+            this.GScoreTxt.ReadOnly = true;
+            this.GScoreTxt.Size = new System.Drawing.Size(142, 31);
+            this.GScoreTxt.TabIndex = 27;
+            // 
+            // UpDownCB
+            // 
+            this.UpDownCB.AutoSize = true;
+            this.UpDownCB.Location = new System.Drawing.Point(1168, 646);
+            this.UpDownCB.Name = "UpDownCB";
+            this.UpDownCB.Size = new System.Drawing.Size(179, 29);
+            this.UpDownCB.TabIndex = 29;
+            this.UpDownCB.Text = "Downsample?";
+            this.UpDownCB.UseVisualStyleBackColor = true;
+            // 
+            // InputNormCB
+            // 
+            this.InputNormCB.AutoSize = true;
+            this.InputNormCB.Location = new System.Drawing.Point(258, 393);
+            this.InputNormCB.Name = "InputNormCB";
+            this.InputNormCB.Size = new System.Drawing.Size(204, 29);
+            this.InputNormCB.TabIndex = 30;
+            this.InputNormCB.Text = "Normalize Inputs";
+            this.InputNormCB.UseVisualStyleBackColor = true;
+            // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Location = new System.Drawing.Point(253, 428);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(150, 25);
+            this.label9.TabIndex = 32;
+            this.label9.Text = "Current Epoch";
+            // 
+            // EpochTxt
+            // 
+            this.EpochTxt.Location = new System.Drawing.Point(258, 456);
+            this.EpochTxt.Name = "EpochTxt";
+            this.EpochTxt.ReadOnly = true;
+            this.EpochTxt.Size = new System.Drawing.Size(142, 31);
+            this.EpochTxt.TabIndex = 31;
+            // 
+            // GradientNormCB
+            // 
+            this.GradientNormCB.AutoSize = true;
+            this.GradientNormCB.Location = new System.Drawing.Point(257, 328);
+            this.GradientNormCB.Name = "GradientNormCB";
+            this.GradientNormCB.Size = new System.Drawing.Size(194, 29);
+            this.GradientNormCB.TabIndex = 33;
+            this.GradientNormCB.Text = "Norm Gradients";
+            this.GradientNormCB.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1743, 760);
+            this.Controls.Add(this.GradientNormCB);
+            this.Controls.Add(this.label9);
+            this.Controls.Add(this.EpochTxt);
+            this.Controls.Add(this.InputNormCB);
+            this.Controls.Add(this.UpDownCB);
+            this.Controls.Add(this.label8);
+            this.Controls.Add(this.GScoreTxt);
             this.Controls.Add(this.COG);
             this.Controls.Add(this.LayerTypeCB);
             this.Controls.Add(this.DelBtn);
@@ -374,6 +452,13 @@
         private System.Windows.Forms.Button AddBtn;
         private System.Windows.Forms.ComboBox LayerTypeCB;
         private System.Windows.Forms.CheckBox COG;
+        private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.TextBox GScoreTxt;
+        private System.Windows.Forms.CheckBox UpDownCB;
+        private System.Windows.Forms.CheckBox InputNormCB;
+        private System.Windows.Forms.Label label9;
+        private System.Windows.Forms.TextBox EpochTxt;
+        private System.Windows.Forms.CheckBox GradientNormCB;
     }
 }
 
