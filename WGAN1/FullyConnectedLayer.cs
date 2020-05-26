@@ -137,7 +137,7 @@ namespace WGAN1
                 Errors = new double[Length];
                 for (int i = 0; i < Length; i++)
                 {
-                    Errors[i] = 2d * (correct - Values[i]);
+                    Errors[i] = 2d * (Values[i] - correct);
                 }
             }
             else

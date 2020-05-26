@@ -288,21 +288,32 @@ namespace WGAN1
             var list = new List<string>();
             if (cog)
             {
-                list.Add("f");
-                list.Add("f");
-                list.Add("f");
+                list.Add("cd");
+                list.Add("cd");
+                list.Add("cd");
+                list.Add("cd");
+                list.Add("cd");
+
                 list.Add("f");
                 list.Add("f");
                 list.Add("f");
             }
             else
             {
+                list.Add("cd");
+                list.Add("cd");
+                list.Add("cd");
+                list.Add("cd");
+                list.Add("cd");
+
                 list.Add("f");
                 list.Add("f");
-                list.Add("f");
-                list.Add("f");
-                list.Add("f");
-                list.Add("f");
+
+                list.Add("cu");
+                list.Add("cu");
+                list.Add("cu");
+                list.Add("cu");
+                list.Add("cu");
             }
             return list;
         }
@@ -311,21 +322,31 @@ namespace WGAN1
             var list = new List<int>();
             if (cog)
             {
-                list.Add(600);
-                list.Add(500);
-                list.Add(400);
-                list.Add(300);
-                list.Add(200);
+                list.Add(2);
+                list.Add(3);
+                list.Add(4);
+                list.Add(5);
+                list.Add(6);
+                list.Add(169);
+                list.Add(169);
                 list.Add(1);
             }
             else
             {
-                list.Add(284);
-                list.Add(384);
-                list.Add(484);
-                list.Add(584);
-                list.Add(684);
-                list.Add(784);
+                list.Add(2);
+                list.Add(3);
+                list.Add(4);
+                list.Add(5);
+                list.Add(6);
+
+                list.Add(169);
+                list.Add(169);
+
+                list.Add(2);
+                list.Add(3);
+                list.Add(4);
+                list.Add(5);
+                list.Add(6);
             }
             return list;
         }

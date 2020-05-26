@@ -83,10 +83,14 @@ namespace WGAN1
                     var fakesamples = new List<double[]>();
                     for (int ii = 0; ii < m; ii++)
                     {
-                        //Generate fake image from latent space
-                        fakesamples.Add(Generator.GenerateSample(Maths.RandomGaussian(r, LatentSize), inputnorm));
+                        
                         //Find next image
                         realsamples.Add(IO.FindNextNumber(num));
+
+                        //Generate fake image from latent space
+                        //fakesamples.Add(Generator.GenerateSample(Maths.RandomGaussian(r, LatentSize), inputnorm));
+                        //Generate fake image from downscaled real image
+                        fakesamples.Add(Generator.GenerateSample(realsamples[ii], inputnorm));
                         //Calculate values to help scale the fakes
                         var mean = Maths.CalcMean(realsamples[ii]);
                         realmean += mean;
@@ -149,12 +153,13 @@ namespace WGAN1
                 double[] test = new double[resolution * resolution];
                 for (int i = 0; i < m; i++)
                 {
-                    var latentspace = Maths.RandomGaussian(r, LatentSize);
-                    test = Generator.GenerateSample(latentspace, inputnorm);
+                    //var latentspace = Maths.RandomGaussian(r, LatentSize);
+                    var img = IO.FindNextNumber(num);
+                    test = Generator.GenerateSample(img, inputnorm);
                     Critic.Calculate(test, gradientnorm);
                     //Backprop through the critic to the generator
                     Critic.CalcGradients(test, -AvgFakeScore, null, false);
-                    Generator.CalcGradients(latentspace, -AvgFakeScore, Critic.Layers[0], true);
+                    Generator.CalcGradients(img, -AvgFakeScore, Critic.Layers[0], true);
                 }
                 Generator.Update(m, gradientnorm);
                 //Update image (if applicable)
