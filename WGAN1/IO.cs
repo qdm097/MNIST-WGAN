@@ -98,6 +98,9 @@ namespace WGAN1
         {
             NN nn = new NN();
             nn.Layers = new List<iLayer>();
+            nn.ResidualLayers = new List<bool>();
+            nn.BatchNormLayers = new List<bool>();
+            nn.TanhLayers = new List<bool>();
             string[] text;
             using (StreamReader sr = File.OpenText(COG ? CWBPath : GWBPath))
             {
@@ -107,25 +110,30 @@ namespace WGAN1
             int iterator = 1;
             for (int i = 0; i < nn.NumLayers; i++)
             {
-                bool fclORcl = text[iterator] == "0"; iterator++;
+                string type = text[iterator]; iterator++;
                 int kernelsize = 0;
-                bool downorup = false;
+                int padsize = 0;
                 int stride = 0;
-                if (!fclORcl)
+                if (type == "2")
                 { 
                     kernelsize = int.Parse(text[iterator]); iterator++;
-                    downorup = text[iterator] == "1"; iterator++;
+                    padsize = int.Parse(text[iterator]); iterator++;
                     stride = int.Parse(text[iterator]); iterator++;
                 }
                 int LayerCount = int.Parse(text[iterator]); iterator++;
                 int InputLayerCount = int.Parse(text[iterator]); iterator++;
+                nn.ResidualLayers.Add(text[iterator] == "1"); iterator++;
+                nn.BatchNormLayers.Add(text[iterator] == "1"); iterator++;
+                nn.TanhLayers.Add(text[iterator] == "1"); iterator++;
 
-                if (fclORcl) { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); }
-                else 
+                if (type == "0") { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); }
+                //No weights exist in a sum layer
+                if (type == "1") { nn.Layers.Add(new SumLayer(LayerCount, InputLayerCount)); continue; }
+                if (type == "2")
                 { 
                     nn.Layers.Add(new ConvolutionLayer(kernelsize, InputLayerCount)); 
                     nn.Layers[i].Length = LayerCount;
-                    (nn.Layers[i] as ConvolutionLayer).DownOrUp = downorup;
+                    (nn.Layers[i] as ConvolutionLayer).PadSize = padsize;
                     (nn.Layers[i] as ConvolutionLayer).Stride = stride;
                 }
 
@@ -156,13 +164,21 @@ namespace WGAN1
                 {
                     sw.Write("0,");
                 }
-                else
+                if (nn.Layers[i] is SumLayer)
                 {
-                    sw.Write("1," + (nn.Layers[i] as ConvolutionLayer).KernelSize.ToString() + ","
-                        + ((nn.Layers[i] as ConvolutionLayer).DownOrUp ? "1" : "0") + ","
+                    sw.Write("1,");
+                }
+                if (nn.Layers[i] is ConvolutionLayer)
+                {
+                    sw.Write("2," + (nn.Layers[i] as ConvolutionLayer).KernelSize.ToString() + ","
+                        + ((nn.Layers[i] as ConvolutionLayer).PadSize.ToString()) + ","
                         + (nn.Layers[i] as ConvolutionLayer).Stride.ToString() + ",");
                 }
-                sw.Write(nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ",");
+                sw.Write(nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ","
+                    + (nn.ResidualLayers[i] ? "1" : "0") + "," + (nn.BatchNormLayers[i] ? "1" : "0") + ","
+                    + (nn.TanhLayers[i] ? "1" : "0") + ",");
+                //Sum layers have no weights
+                if (nn.Layers[i] is SumLayer) { continue; }
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
                     for (int jj = 0; jj < nn.Layers[i].Weights.GetLength(1); jj++)

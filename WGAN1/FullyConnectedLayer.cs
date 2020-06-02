@@ -11,7 +11,7 @@ namespace WGAN1
     {
         public int Length { get; set; }
         public int InputLength { get; set; }
-        public double[] Values { get; set; }
+        public bool UsesTanh { get; set; }
         public double[] ZVals { get; set; }
         public double[] Errors { get; set; }
         //Weights
@@ -73,7 +73,7 @@ namespace WGAN1
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
-                        WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (WUpdates[i, ii] * WUpdates[i, ii]));
+                        WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (WUpdates[i, ii] * WUpdates[i, ii])) + NN.Infinitesimal;
                         WUpdates[i, ii] = (NN.LearningRate / Math.Sqrt(WRMSGrad[i, ii])) * WUpdates[i, ii];
                     }
                 }
@@ -129,35 +129,49 @@ namespace WGAN1
         /// </summary>
         /// <param name="input">Previous layer's values</param>
         /// <param name="isoutput">Whether the layer is the output layer</param>
-        public void Backprop(double[] input, iLayer outputlayer, bool isoutput, double correct, bool calcgradients)
+        public void Backprop(double[] input, iLayer outputlayer, double[] outputvals, double correct, bool calcgradients)
         {
             //Calculate error
-            if (isoutput)
+            if (!(outputvals is null))
             {
-                Errors = new double[Length];
                 for (int i = 0; i < Length; i++)
                 {
-                    Errors[i] = 2d * (Values[i] - correct);
+                    Errors[i] = 2d * (outputvals[i] - correct);
                 }
             }
             else
             {
+                if (outputlayer is SumLayer)
+                {
+                    //Errors with respect to the output of the convolution
+                    //dl/do
+                    for (int k = 0; k < outputlayer.Length; k++)
+                    {
+                        for (int j = 0; j < outputlayer.InputLength; j++)
+                        {
+                            double zvalderriv = outputlayer.ZVals[k] - ZVals[j];
+                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
+                            Errors[j] += zvalderriv * outputlayer.Errors[k];
+                        }
+                    }
+                }
                 if (outputlayer is FullyConnectedLayer)
                 {
                     var FCLOutput = outputlayer as FullyConnectedLayer;
-                    Errors = new double[Length];
                     for (int k = 0; k < FCLOutput.Length; k++)
                     {
                         for (int j = 0; j < Length; j++)
                         {
-                            Errors[j] += FCLOutput.Weights[k, j] * Maths.TanhDerriv(outputlayer.ZVals[k]) * FCLOutput.Errors[k];
+                            double zvalderriv = outputlayer.ZVals[k];
+                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
+                            Errors[j] += FCLOutput.Weights[k, j] * zvalderriv * FCLOutput.Errors[k];
                         }
                     }
                 }
                 if (outputlayer is ConvolutionLayer)
                 {
                     var CLOutput = outputlayer as ConvolutionLayer;
-                    Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
+                    Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))));
                 }
             }
             if (calcgradients)
@@ -165,18 +179,21 @@ namespace WGAN1
                 //Calculate gradients
                 for (int i = 0; i < Length; i++)
                 {
+                    double zvalderriv = ZVals[i];
+                    if (UsesTanh) { zvalderriv = Maths.TanhDerriv(ZVals[i]); }
+
                     for (int ii = 0; ii < InputLength; ii++)
                     {
                         //Weight gradients
-                        WeightGradient[i, ii] = input[ii] * Maths.TanhDerriv(ZVals[i]) * Errors[i];
+                        WeightGradient[i, ii] = -1 * input[ii] * zvalderriv * Errors[i];
                     }
-                    if (isoutput) { continue; }
+                    if (!(outputvals is null)) { continue; }
                     //Bias gradients
-                    BiasGradient[i] = Maths.TanhDerriv(ZVals[i]) * Errors[i];
+                    BiasGradient[i] = -1 * zvalderriv * Errors[i];
                 }
             }
         }
-        public void Calculate(double[] input, bool output, bool usetanh)
+        public void Calculate(double[] input, bool output)
         {
             var vals = new double[Length];
             for (int k = 0; k < Length; k++)
@@ -191,12 +208,10 @@ namespace WGAN1
                 }
             }
             ZVals = vals;
-            if (!output && usetanh) { Values = Maths.Tanh(vals); }
-            else { Values = vals; }
         }
-        public void Calculate(double[,] input, bool output, bool usetanh)
+        public void Calculate(double[,] input, bool output)
         {
-            Calculate(Maths.Convert(input), output, usetanh);
+            Calculate(Maths.Convert(input), output);
         }
     }
 }

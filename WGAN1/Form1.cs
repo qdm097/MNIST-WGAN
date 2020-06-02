@@ -6,15 +6,14 @@ using System.Windows.Forms;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Linq;
+using System.Xml.Xsl;
 
 namespace WGAN1
 {
     public partial class Form1 : Form
     {
-        public List<string> LayerTypes { get; set; }
-        public List<int> LayerCounts { get; set; }
-        public List<string> InactiveLayerTypes { get; set; }
-        public List<int> InactiveLayerCounts { get; set; }
+        public List<string> ActiveLayers { get; set; }
+        public List<string> InactiveLayers { get; set; }
         NN Critic;
         NN Generator;
         int batchsize = 10;
@@ -22,7 +21,7 @@ namespace WGAN1
         int imgspeed = 0;
 
         int resolution = 28;
-        int latentsize = 25;
+        int latentsize = 784;
         //The maximum RMSE allowed before the network stops learning
         public static int Cutoff = 10;
         bool dt;
@@ -47,10 +46,12 @@ namespace WGAN1
             //Layer types combobox
             LayerTypeCB.Items.Add("Fully Connected");
             LayerTypeCB.Items.Add("Convolution");
+            LayerTypeCB.Items.Add("Sum");
             LayerTypeCB.SelectedIndex = 0;
 
             Epoch = 0;
             InputNormCB.Checked = true;
+            GradientNormCB.Checked = true;
             ClipTxt.Text = NN.ClipParameter.ToString();
             AlphaTxt.Text = NN.LearningRate.ToString();
             RMSDTxt.Text = NN.RMSDecay.ToString();
@@ -59,22 +60,17 @@ namespace WGAN1
             try
             {
                 Critic = IO.Read(true);
+                RefreshList(Critic, false);
                 Generator = IO.Read(false);
+                RefreshList(Generator, true);
             }
             catch
             {
-                LayerTypes = DefaultTypes(false);
-                LayerCounts = DefaultCounts(false);
-                InactiveLayerTypes = DefaultTypes(true);
-                InactiveLayerCounts = DefaultCounts(true);
-
+                ActiveLayers = Default(false);
+                InactiveLayers = Default(true);
                 ResetBtn_Click(this, new EventArgs());
-
-                RefreshListBoxes(Critic, false);
-                RefreshListBoxes(Generator, true);
             }
-            RefreshListBoxes(Generator, true);
-            RefreshListBoxes(Critic, false);
+            RefreshLayerLB();
             //Only want this shown if a conv layer is selected
             UpDownCB.Hide();
         }
@@ -84,7 +80,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);               
+                 NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);               
             });
             thread.IsBackground = true;
             thread.Start();
@@ -92,69 +88,110 @@ namespace WGAN1
         private void ResetBtn_Click(object sender, EventArgs e)
         {
             if (NN.Training) { NN.Save = false; NN.Training = false; TrainBtn.Enabled = false; }
-            //Generator
-            Generator = new NN().Init(GenerateLayers(false));
-            IO.Write(Generator, false);
-            //Critic
-            Critic = new NN().Init(GenerateLayers(true));
-            IO.Write(Critic, true);
+
+            ResetNNs(COG.Checked);
+
             Epoch = 0;
         }
-        List<iLayer> GenerateLayers(bool COG)
+        List<bool> GenerateBatchnorms(bool cog)
+        {
+            List<string[]> layers = Split(ActiveLayers);
+            if (COG.Checked != cog) { layers = Split(InactiveLayers); }
+            List<bool> batchnorms = new List<bool>();
+            foreach(string[] s in layers)
+            {
+                if (s.Length > 1 && s[1] == "1") { batchnorms.Add(true); continue; }
+                batchnorms.Add(false); 
+            }
+            return batchnorms;
+        }
+        List<bool> GenerateResiduals(bool cog)
+        {
+            List<string[]> layers = Split(ActiveLayers);
+            if (COG.Checked != cog) { layers = Split(InactiveLayers); }
+            List<bool> residuals = new List<bool>();
+            foreach(string[] s in layers)
+            {
+                if (s.Length > 2 && s[2] == "1") { residuals.Add(true); continue; }
+                residuals.Add(false); 
+            }
+            return residuals;
+        }
+        List<bool> GenerateTanhs(bool cog)
+        {
+            List<string[]> layers = Split(ActiveLayers);
+            if (COG.Checked != cog) { layers = Split(InactiveLayers); }
+            List<bool> tanhs = new List<bool>();
+            foreach (string[] s in layers)
+            {
+                if (s.Length > 3 && s[3] == "1") { tanhs.Add(true); continue; }
+                tanhs.Add(false);
+            }
+            return tanhs;
+        }
+        List<iLayer> GenerateLayers(bool cog)
         {
             int priorsize;
-            if (COG) { priorsize = resolution * resolution; }
+            if (cog) { priorsize = resolution * resolution; }
             else { priorsize = latentsize; }
-            List<int> layercounts;
-            List<string> layertypes;
-            if (this.COG.Checked == COG)
+            List<string[]> layers = Split(ActiveLayers);
+            if (COG.Checked != cog)
             {
-                layercounts = LayerCounts;
-                layertypes = LayerTypes;
+                layers = Split(InactiveLayers);
             }
-            else
+            List<iLayer> nnlayers = new List<iLayer>();
+            for (int i = 0; i < layers.Count; i++)
             {
-                layercounts = InactiveLayerCounts;
-                layertypes = InactiveLayerTypes;
-            }
-            List<iLayer> layers = new List<iLayer>();
-            for (int i = 0; i < layercounts.Count; i++)
-            {
-                int ncount = layercounts[i];
-                //If a convolution
-                if (layertypes[i][0] == 'c')
+                int ncount;
+                if (layers[i][0] == "s")
                 {
-                    layers.Add(new ConvolutionLayer(ncount, priorsize));
-                    bool downorup = layertypes[i][1] == 'd';
-                   
-                    if (layertypes[i].Length == 3) { (layers[i] as ConvolutionLayer).Stride = int.Parse(layertypes[i][2].ToString()); }
-                    else { (layers[i] as ConvolutionLayer).Stride = 1; }
-                    (layers[i] as ConvolutionLayer).DownOrUp = downorup;
-                    //Calculate the padded matrix size (if applicable)
-                    int temp = (int)Math.Sqrt(priorsize);
-                    
-                    if (downorup)
+                    nnlayers.Add(new SumLayer(priorsize, priorsize));
+                    continue;
+                }
+                else
+                {
+                    ncount = int.Parse(layers[i][1]);
+                }
+                //If a convolution
+                if (layers[i][0] == "c")
+                {
+                    nnlayers.Add(new ConvolutionLayer(ncount, priorsize));
+                    var convlayer = (nnlayers[i] as ConvolutionLayer);
+                    int sqrtpriorsize = (int)Math.Sqrt(priorsize);
+
+                    priorsize = (sqrtpriorsize - ncount);
+
+                    if (layers[i].Length == 7) 
                     {
-                        //Critic decreases the size of the inputted array
-                        priorsize = ((temp - ncount) / (layers[i] as ConvolutionLayer).Stride + 1);
+                        convlayer.Stride = int.Parse(layers[i][6].ToString());
+                        priorsize /= convlayer.Stride;
+                        priorsize += 1;
+
+                        if (int.TryParse(layers[i][5], out int result)) { convlayer.PadSize = result; }
+                        //Calc pad size needed to return to the original size
+                        else { convlayer.PadSize = (sqrtpriorsize - priorsize) / 2; }
+
+                        priorsize += 2 * convlayer.PadSize;
                     }
-                    else
+                    else 
                     {
-                        //Generator increases the size of the inputted array
-                        priorsize = ((layers[i] as ConvolutionLayer).Stride * (temp - 1)) + ncount;
+                        convlayer.PadSize = 0;
+                        convlayer.Stride = 1;
+                        priorsize += 1;
                     }
                     priorsize *= priorsize;
                     continue;
                 }
-                if (layertypes[i] == "f")
+                if (layers[i][0] == "f")
                 {
-                    layers.Add(new FullyConnectedLayer(ncount, priorsize));
+                    nnlayers.Add(new FullyConnectedLayer(ncount, priorsize));
                     priorsize = ncount;
                     continue;
                 }
+              
                 throw new Exception("Invalid layer type");
             }
-            return layers;
+            return nnlayers;
         }
         private void AlphaTxt_TextChanged(object sender, EventArgs e)
         {
@@ -283,109 +320,141 @@ namespace WGAN1
             }
             return newImage;
         }
-        private List<string> DefaultTypes(bool cog)
+        private List<string> Default(bool cog)
         {
+            //[0] is type of layer
+            //[1] is count of layer
+            //Defaulted to [false], [false], [false]
+            //[2] is whether it is a residual
+            //[3] is whether it batchnorms
+            //[4] is whether to use Tanh
+            //Defaulted to [0], [1]
+            //[5] is padsize
+            //[6] is stride
             var list = new List<string>();
             if (cog)
             {
-                list.Add("cd");
-                list.Add("cd");
-                list.Add("cd");
-                list.Add("cd");
-                list.Add("cd");
+                list.Add("c,3,0,0,1,0,1");
+                list.Add("c,3,0,0,1,0,1");
+                list.Add("c,5,1,1,1,0,1");
 
-                list.Add("f");
-                list.Add("f");
-                list.Add("f");
+                list.Add("c,3,0,0,1,x,1");
+                list.Add("c,3,0,0,1,x,1");
+                list.Add("c,5,0,1,1,x,1");
+
+                list.Add("s");
+                list.Add("f,150,1,0,1");
+                list.Add("f,100,1,0,1");
+                list.Add("f,1,0,1,0");
             }
             else
             {
-                list.Add("cd");
-                list.Add("cd");
-                list.Add("cd");
-                list.Add("cd");
-                list.Add("cd");
+                list.Add("c,3,1,1,1,x,1");
+                list.Add("c,3,0,1,1,x,1");
+                list.Add("s");
 
-                list.Add("f");
-                list.Add("f");
+                list.Add("c,5,1,1,1,x,1");
+                list.Add("c,5,0,1,1,x,1");
+                list.Add("s");
 
-                list.Add("cu");
-                list.Add("cu");
-                list.Add("cu");
-                list.Add("cu");
-                list.Add("cu");
+                list.Add("c,7,1,1,1,x,1");
+                list.Add("c,7,0,0,1,x,1");
+                list.Add("s");
+
+                list.Add("c,3,1,1,1,x,1");
+                list.Add("c,3,0,1,1,x,1");
+                list.Add("s");
+
+                list.Add("c,5,1,1,1,x,1");
+                list.Add("c,5,0,1,1,x,1");
+                list.Add("s");
+
+                list.Add("c,7,1,1,1,x,1");
+                list.Add("c,7,0,0,1,x,1");
+                list.Add("s");
+
+                list.Add("c,3,1,1,1,x,1");
+                list.Add("c,3,0,1,1,x,1");
+                list.Add("s");
+
+                list.Add("c,5,1,1,1,x,1");
+                list.Add("c,5,0,1,1,x,1");
+                list.Add("s");
+
+                list.Add("c,7,1,1,1,x,1");
+                list.Add("c,7,0,0,1,x,1");
+                list.Add("s");
             }
             return list;
         }
-        private List<int> DefaultCounts(bool cog)
+        private void RefreshList(NN desired, bool ActiveOrInactive)
         {
-            var list = new List<int>();
-            if (cog)
-            {
-                list.Add(2);
-                list.Add(3);
-                list.Add(4);
-                list.Add(5);
-                list.Add(6);
-                list.Add(169);
-                list.Add(169);
-                list.Add(1);
-            }
-            else
-            {
-                list.Add(2);
-                list.Add(3);
-                list.Add(4);
-                list.Add(5);
-                list.Add(6);
-
-                list.Add(169);
-                list.Add(169);
-
-                list.Add(2);
-                list.Add(3);
-                list.Add(4);
-                list.Add(5);
-                list.Add(6);
-            }
-            return list;
-        }
-        private void RefreshListBoxes(NN desired, bool ActiveOrInactive)
-        {
-            var types = new List<string>();
-            var counts = new List<int>();
+            var layers = new List<string>();
             if (ActiveOrInactive) { LayerLB.Items.Clear(); }
-
-            foreach (iLayer l in desired.Layers)
+            int index = 0;
+            for (int i = 0; i < desired.Layers.Count; i++)
             {
-                string name = null;
-                int len = l.Length;
-                if (l is FullyConnectedLayer) { types.Add("f"); name = "Fully Connected"; }
-                if (l is ConvolutionLayer) 
-                {
-                    types.Add("c" + ((l as ConvolutionLayer).DownOrUp ? "d" : "u"));
-                    name = "Convolution"; len = (l as ConvolutionLayer).KernelSize;
+                string layer = "";
+
+                //Filter by layer type
+                if (desired.Layers[i] is FullyConnectedLayer) 
+                { 
+                    layer += "f,"; layer += desired.Layers[i].Length + ",";
+                    if (!(desired.ResidualLayers is null))
+                    {
+                        layer += desired.ResidualLayers[i] ? "1," : "0,";
+                        layer += desired.BatchNormLayers[i] ? "1," : "0,";
+                        layer += desired.TanhLayers[i] ? "1," : "0,";
+                    }
                 }
-                counts.Add(len);
-                if (ActiveOrInactive) { LayerLB.Items.Add("[" + (counts.Count - 1).ToString() + "] " + name + ", " + len.ToString()); }
+                if (desired.Layers[i] is ConvolutionLayer) 
+                {
+                    layer += "c,";
+                    layer += (desired.Layers[i] as ConvolutionLayer).KernelSize + ",";
+                    layer += desired.ResidualLayers[i] ? "1," : "0,";
+                    layer += desired.BatchNormLayers[i] ? "1," : "0,";
+                    layer += desired.TanhLayers[i] ? "1," : "0,";
+                    layer += (desired.Layers[i] as ConvolutionLayer).PadSize.ToString() + ",";
+                    layer += (desired.Layers[i] as ConvolutionLayer).Stride.ToString();
+                }
+                if (desired.Layers[i] is SumLayer) 
+                {
+                    layer += "s";
+                }
+                layers.Add(layer);
+                index++;
             }
             if (ActiveOrInactive)
             {
-                LayerTypes = types;
-                LayerCounts = counts;
+                ActiveLayers = layers;
+                RefreshLayerLB();
             }
             else
             {
-                InactiveLayerTypes = types;
-                InactiveLayerCounts = counts;
+                InactiveLayers = layers;
             }
         }
         private void LayerLB_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (LayerLB.SelectedIndex < 0) { return; }
-            LayerCountTxt.Text = LayerCounts[LayerLB.SelectedIndex].ToString();
-            if (LayerTypes[LayerLB.SelectedIndex][0] == 'c')
-            { UpDownCB.Show(); UpDownCB.Checked = LayerTypes[LayerLB.SelectedIndex][1] == 'd'; }
+            var layers = Split(ActiveLayers);
+            if (LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'S')
+            {
+                LayerCountTxt.Text = null;
+            }
+            else
+            {
+                LayerCountTxt.Text = layers[LayerLB.SelectedIndex][1].ToString();
+            }
+            if (layers[LayerLB.SelectedIndex].Length > 1) { ResidualCB.Checked = layers[LayerLB.SelectedIndex][2] == "1"; }
+            else { ResidualCB.Checked = false; }
+            if (layers[LayerLB.SelectedIndex].Length > 2) { BatchnormCB.Checked = layers[LayerLB.SelectedIndex][3] == "1"; }
+            else { BatchnormCB.Checked = false; }
+            if (layers[LayerLB.SelectedIndex].Length > 3) { TanhCB.Checked = layers[LayerLB.SelectedIndex][4] == "1"; }
+            else { TanhCB.Checked = false; }
+
+            //if (ActiveLayers[LayerLB.SelectedIndex][0] == 'c')
+            //{ UpDownCB.Show(); UpDownCB.Checked = LayerTypes[LayerLB.SelectedIndex][1] == 'd'; }
         }
 
         private void UpBtn_Click(object sender, EventArgs e)
@@ -393,15 +462,7 @@ namespace WGAN1
             if (LayerLB.Items.Count < 2) { return; }
             if (LayerLB.SelectedIndex == 0) { return; }
 
-            //Layercounts
-            int i = LayerCounts[LayerLB.SelectedIndex];
-            LayerCounts[LayerLB.SelectedIndex] = LayerCounts[LayerLB.SelectedIndex - 1];
-            LayerCounts[LayerLB.SelectedIndex - 1] = i;
-
-            //Layer types
-            string s = LayerTypes[LayerLB.SelectedIndex];
-            LayerTypes[LayerLB.SelectedIndex] = LayerTypes[LayerLB.SelectedIndex - 1];
-            LayerTypes[LayerLB.SelectedIndex - 1] = s;
+            Swap(true, LayerLB.SelectedIndex, LayerLB.SelectedIndex - 1);
 
             //Layer list box
             string selected = LayerLB.Items[LayerLB.SelectedIndex].ToString();
@@ -418,15 +479,7 @@ namespace WGAN1
             if (LayerLB.Items.Count < 2) { return; }
             if (LayerLB.SelectedIndex == LayerLB.Items.Count - 1) { return; }
 
-            //Layercounts
-            int i = LayerCounts[LayerLB.SelectedIndex];
-            LayerCounts[LayerLB.SelectedIndex] = LayerCounts[LayerLB.SelectedIndex + 1];
-            LayerCounts[LayerLB.SelectedIndex + 1] = i;
-
-            //Layer types
-            string s = LayerTypes[LayerLB.SelectedIndex];
-            LayerTypes[LayerLB.SelectedIndex] = LayerTypes[LayerLB.SelectedIndex + 1];
-            LayerTypes[LayerLB.SelectedIndex + 1] = s;
+            Swap(true, LayerLB.SelectedIndex, LayerLB.SelectedIndex + 1);
 
             //Layer list box
             string selected = LayerLB.Items[LayerLB.SelectedIndex].ToString();
@@ -453,31 +506,51 @@ namespace WGAN1
                     return;
                 }
             }
-            LayerTypes.Add(type);
-            LayerCounts.Add(result);
-            LayerLB.Items.Add("[" + (LayerCounts.Count - 1).ToString() + "] " + LayerTypeCB.Text + ", " + result.ToString());
+            if (LayerTypeCB.Text == "Sum") { type = "s"; result = -1; }
+
+            string residual = ResidualCB.Checked ? "1" : "0";
+            string batchnorm = BatchnormCB.Checked ? "1" : "0";
+            string tanh = TanhCB.Checked ? "1" : "0";
+            ActiveLayers.Add(type + result.ToString() + residual + batchnorm + tanh);
+            LayerLB.Items.Add("[" + (ActiveLayers.Count - 1).ToString() + "] " + LayerTypeCB.Text + ", " + result.ToString());
         }
 
         private void DelBtn_Click(object sender, EventArgs e)
         {
             if (LayerLB.Items.Count == 0) { return; }
-            if (LayerLB.SelectedIndex == LayerTypes.Count - 1) { MessageBox.Show("Can't remove the output layer"); return; }
-            LayerTypes.RemoveAt(LayerLB.SelectedIndex);
-            LayerCounts.RemoveAt(LayerLB.SelectedIndex);
+            if (LayerLB.SelectedIndex == ActiveLayers.Count - 1) { MessageBox.Show("Can't remove the output layer"); return; }
+            ActiveLayers.RemoveAt(LayerLB.SelectedIndex);
             LayerLB.Items.RemoveAt(LayerLB.SelectedIndex);
         }
 
         private void LayerCountTxt_TextChanged(object sender, EventArgs e)
         {
+            if (LayerLB.SelectedIndex == -1) { return; }
+            if (LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'S') { return; }
             if (LayerLB.SelectedIndex == LayerLB.Items.Count - 1) { return; }
+
             if (!(int.TryParse(LayerCountTxt.Text, out int result)) || result > 100 || result < 1)
-            { LayerCountTxt.Text = 30.ToString(); MessageBox.Show("Layer count must be an int between 0 and 100\nReset to default"); return; }
+            {
+                if (LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'C')
+                {
+                    LayerCountTxt.Text = 30.ToString();
+                }
+                else
+                {
+                    LayerCountTxt.Text = 5.ToString();
+                }
+                MessageBox.Show("Layer count must be an int between 0 and 100\nReset to default"); return; 
+            }
+            if (result % 2 == 0 && LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'C')
+            {
+                LayerCountTxt.Text = (result - 1).ToString(); MessageBox.Show("Convolution layers must have odd kernel sizes to allow for padding");
+            }
         }
 
         private void UpdateBtn_Click(object sender, EventArgs e)
         {
             if (LayerLB.Items.Count == 0) { return; }
-            if (LayerLB.SelectedIndex == LayerTypes.Count - 1) { MessageBox.Show("Can't change the output layer"); return; }
+            if (LayerLB.SelectedIndex == ActiveLayers.Count - 1) { MessageBox.Show("Can't change the output layer"); return; }
             int result = int.Parse(LayerCountTxt.Text);
             string type = null;
             if (LayerTypeCB.Text == "Fully Connected") { type = "f"; }
@@ -491,47 +564,85 @@ namespace WGAN1
                     return;
                 }
             }
-            LayerTypes[LayerLB.SelectedIndex] = type;
-            LayerCounts[LayerLB.SelectedIndex] = result;
-            LayerLB.Items[LayerLB.SelectedIndex] = "[" + LayerLB.SelectedIndex.ToString() + "] " + LayerTypeCB.Text + ", " + result.ToString();
+            if (LayerTypeCB.Text == "Sum") { type = "s"; }
 
+            string residual = ResidualCB.Checked ? "1" : "0";
+            string batchnorm = BatchnormCB.Checked ? "1" : "0";
+            string tanh = TanhCB.Checked ? "1" : "0";
+
+            ActiveLayers[LayerLB.SelectedIndex] = type + result.ToString() + residual + batchnorm + tanh;
+            LayerLB.Items[LayerLB.SelectedIndex] = "[" + LayerLB.SelectedIndex.ToString() + "] " + LayerTypeCB.Text + ", " + result.ToString();
         }
 
         private void DefaultBtn_Click(object sender, EventArgs e)
         {
-            LayerTypes = DefaultTypes(COG.Checked);
-            LayerCounts = DefaultCounts(COG.Checked);
-            NN newnn = ResetNN(COG.Checked);
-            RefreshListBoxes(newnn, true);
+            ActiveLayers = Default(COG.Checked);
+            InactiveLayers = Default(!COG.Checked);
+            RefreshLayerLB();
         }
-        private NN ResetNN(bool cog)
+        private void ResetNNs(bool cog)
         {
-            NN nn = new NN();
-            if (LayerTypes is null || LayerTypes.Count == 0)
+            if (ActiveLayers is null || ActiveLayers.Count == 0)
             {
-                LayerTypes = DefaultTypes(cog);
-                LayerCounts = DefaultCounts(cog);
+                ActiveLayers = Default(cog);
             }
-            nn.Init(GenerateLayers(cog));
-            IO.Write(nn, cog);
-            return nn;
+            if (InactiveLayers is null || InactiveLayers.Count == 0)
+            {
+                InactiveLayers = Default(!cog);
+            }
+            Generator = new NN().Init(GenerateLayers(false), GenerateTanhs(false), GenerateResiduals(false), GenerateBatchnorms(false));
+            Critic = new NN().Init(GenerateLayers(true), GenerateTanhs(true), GenerateResiduals(true), GenerateBatchnorms(true));
+            IO.Write(Critic, true);
+            IO.Write(Generator, false);
+        }
+        private void RefreshLayerLB()
+        {
+            LayerLB.Items.Clear();
+            List<string[]> layers = Split(ActiveLayers);
+            for (int i = 0; i < ActiveLayers.Count; i++)
+            {
+                string description = "";
+                if (layers[i][0] == "c") { description = "Convolution, "; }
+                if (layers[i][0] == "f") { description = "Fully Connected, "; }
+                if (layers[i][0] == "s") { description = "Sum"; }
+                if (layers[i].Length > 1 && layers[i][0] != "s") { description += layers[i][1].ToString(); }
+                LayerLB.Items.Add("[" + i + "] " + description);
+            }
         }
 
         private void COG_CheckedChanged(object sender, EventArgs e)
         {
-            var templcs = InactiveLayerCounts;
-            InactiveLayerCounts = LayerCounts;
-            LayerCounts = templcs;
-            var templts = InactiveLayerTypes;
-            InactiveLayerTypes = LayerTypes;
-            LayerTypes = templts;
+            var temp = InactiveLayers;
+            InactiveLayers = ActiveLayers;
+            ActiveLayers = temp;
 
-            if (LayerTypes is null || LayerTypes.Count == 0)
+            if (ActiveLayers is null || ActiveLayers.Count == 0
+                || InactiveLayers is null || InactiveLayers.Count == 0)
             {
                 DefaultBtn_Click(sender, e); return;
             }
-            NN newnn = ResetNN(COG.Checked);
-            RefreshListBoxes(newnn, true);
+            RefreshLayerLB();
+        }
+        private void Swap(bool active, int indexA, int indexB)
+        {
+            if (active) { ActiveLayers = Swap(ActiveLayers, indexA, indexB); }
+            else { InactiveLayers = Swap(InactiveLayers, indexA, indexB); }
+        }
+        public static List<T> Swap<T>(List<T> list, int indexA, int indexB)
+        {
+            var temp = list[indexA];
+            list[indexA] = list[indexB];
+            list[indexB] = temp;
+            return list;
+        }
+        public List<string[]> Split(List<string> original)
+        {
+            List<string[]> output = new List<string[]>();
+            foreach (string s in original)
+            {
+                output.Add(s.Split(','));
+            }
+            return output;
         }
     }
 }

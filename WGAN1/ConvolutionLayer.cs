@@ -14,16 +14,15 @@ namespace WGAN1
         double[,] RMSGrad { get; set; }
         double[,] Gradients { get; set; }
         double[,] Updates { get; set; }
-        //Whether this layer belongs to a [C]ritic [O]r [G]enerator
-        public bool DownOrUp { get; set; }
         public int Length { get; set; }
         public int KernelSize { get; set; }
         public int InputLength { get; set; }
+        public bool UsesTanh { get; set; }
         public double[] Errors { get; set; }
         public double[] ZVals { get; set; }
-        public double[] Values { get; set; }
         public double AvgUpdate { get; set; }
         public int Stride { get; set; }
+        public int PadSize { get; set; }
 
         public ConvolutionLayer(int kernelsize, int inputsize)
         {
@@ -60,7 +59,7 @@ namespace WGAN1
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
-                        RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (Updates[i, ii] * Updates[i, ii]));
+                        RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (Updates[i, ii] * Updates[i, ii])) + NN.Infinitesimal;
                         Updates[i, ii] = (NN.LearningRate / Math.Sqrt(RMSGrad[i, ii])) * Updates[i, ii];
                     }
                 }
@@ -84,17 +83,31 @@ namespace WGAN1
             }
             Gradients = new double[KernelSize, KernelSize];
         }
-        public void Backprop(double[] input, iLayer outputlayer, bool isoutput, double correct, bool calcgradients)
+        public void Backprop(double[] input, iLayer outputlayer, double[] outputvals, double correct, bool calcgradients)
         {
             //Calculate error
-            if (isoutput && outputlayer is null)
+            if (!(outputvals is null) && outputlayer is null)
             {
                 //Leveraging the fact that only the critic uses this formula,
                 //and the critic always has an output size of [1]
-                Errors = new double[1] { 2d * (correct - Values[0])};
+                Errors[0] =  2d * (outputvals[0] - correct);
             }
             else
             {
+                if (outputlayer is SumLayer)
+                {
+                    //Errors with respect to the output of the convolution
+                    //dl/do
+                    for (int k = 0; k < outputlayer.Length; k++)
+                    {
+                        for (int j = 0; j < outputlayer.InputLength; j++)
+                        {
+                            double zvalderriv = outputlayer.ZVals[k] - ZVals[j];
+                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
+                            Errors[j] += zvalderriv * outputlayer.Errors[k];
+                        }
+                    }
+                }
                 if (outputlayer is FullyConnectedLayer)
                 {
                     //Errors with respect to the output of the convolution
@@ -104,7 +117,9 @@ namespace WGAN1
                     {
                         for (int j = 0; j < outputlayer.InputLength; j++)
                         {
-                            Errors[j] += outputlayer.Weights[k, j] * Maths.TanhDerriv(outputlayer.ZVals[k]) * outputlayer.Errors[k];
+                            double zvalderriv = outputlayer.ZVals[k];
+                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(outputlayer.ZVals[k]); }
+                            Errors[j] += outputlayer.Weights[k, j] * zvalderriv * outputlayer.Errors[k];
                         }
                     }
                 }
@@ -114,10 +129,8 @@ namespace WGAN1
                     var CLOutput = outputlayer as ConvolutionLayer;
                     //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
 
-                    //Critic upscales to find errors
-                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))); }
-                    //Generator downscales to find them
-                    else { Errors = Maths.Convert(Flip(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+                    //Upscale to find errors
+                    Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))));
 
                 }
                 //Gradients = Convolve(Maths.Convert(Errors), Input);
@@ -126,9 +139,7 @@ namespace WGAN1
             if (calcgradients) 
             { 
                 double[,] Input = Maths.Convert(input);
-                if (DownOrUp) { Gradients = Convolve(Maths.Convert(Errors), Input); }
-                //No idea if this is accurate, but it works
-                else { Gradients = Convolve(Input, Maths.Convert(Errors)); }
+                Gradients = Convolve(Maths.Convert(Maths.Scale(-1, Errors)), Pad(Input));
             }
         }
         /// <summary>
@@ -138,20 +149,17 @@ namespace WGAN1
         /// <param name="input">The input matrix</param>
         /// <param name="isoutput">Whether to use hyperbolic tangent on the output</param>
         /// <returns></returns>
-        public void Calculate(double[] input, bool isoutput, bool usetanh)
+        public void Calculate(double[] input, bool isoutput)
         {
-            Calculate(Maths.Convert(input), isoutput, usetanh);
+            Calculate(Maths.Convert(input), isoutput);
         }
-        public void Calculate(double[,] input, bool isoutput, bool usetanh)
+        public void Calculate(double[,] input, bool isoutput)
         {
             //Padded upscaling
             //var output = COG ? Convolve(Weights, input) : Convolve(Weights, Pad(input));
 
-            //Transposed convolutional upscaling
-            var output = DownOrUp ? Convolve(Weights, input) : FullConvolve(Weights, input);
+            var output = Pad(Convolve(Weights, input));
             ZVals = Maths.Convert(output);
-            if (!isoutput && usetanh) { output = Maths.Tanh(output); }
-            Values = Maths.Convert(output);
         }
         public double[,] Convolve(double[,] filter, double[,] input)
         {
@@ -214,19 +222,38 @@ namespace WGAN1
             }
             return output;
         }
-        public double[,] Pad(double[,] input)
+        double[,] Pad(double[,] input)
         {
+            if (PadSize == 0) { return input; }
+
             int inputxsize = input.GetLength(0);
             int inputysize = input.GetLength(1);
-            int padsize = KernelSize - 1;
 
-            var output = new double[inputxsize + (2 * padsize), inputysize + (2 * padsize)];
+            var output = new double[inputxsize + (2 * PadSize), inputysize + (2 * PadSize)];
 
-            for (int i = 0; i < inputxsize; i++)
+            for (int i = 0; i < inputxsize - PadSize; i++)
             {
-                for (int ii = 0; ii < inputysize; ii++)
+                for (int ii = 0; ii < inputysize - PadSize; ii++)
                 {
-                    output[i + padsize, ii + padsize] = input[i, ii];
+                    output[i + PadSize, ii + PadSize] = input[i, ii];
+                }
+            }
+            return output;
+        }
+        public double[,] UnPad(double[,] input)
+        {
+            if (PadSize == 0) { return input; }
+
+            int outputxsize = input.GetLength(0) - (2 * PadSize);
+            int outputysize = input.GetLength(1) - (2 * PadSize);
+
+            var output = new double[outputxsize, outputysize];
+
+            for (int i = 0; i < outputxsize - PadSize; i++)
+            {
+                for (int ii = 0; ii < outputysize - PadSize; ii++)
+                {
+                    output[i, ii] = input[i + PadSize, ii + PadSize];
                 }
             }
             return output;
