@@ -384,5 +384,20 @@ namespace WGAN1
             Calculate(latentspaces);
             return Values[NumLayers - 1];
         }
+        List<double[]> GenerateNoisyImages(Random r, int latentsize, int num)
+        {
+            var output = new List<double[]>();
+            for (int i = 0; i < latentsize; i++)
+            {
+                var img = IO.FindNextNumber(num);
+                var latentspace = Maths.RandomGaussian(r, latentsize);
+                output.Add(new double[latentsize]);
+                for (int j = 0; j < latentsize; j++)
+                {
+                    output[i][j] = img[j] * latentspace[j];
+                }
+            }
+            return output;
+        }
     }
 }

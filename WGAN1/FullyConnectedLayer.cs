@@ -149,7 +149,7 @@ namespace WGAN1
                     {
                         for (int j = 0; j < outputlayer.InputLength; j++)
                         {
-                            double zvalderriv = outputlayer.ZVals[k] - ZVals[j];
+                            double zvalderriv = ZVals[j];
                             if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
                             Errors[j] += zvalderriv * outputlayer.Errors[k];
                         }
@@ -171,7 +171,9 @@ namespace WGAN1
                 if (outputlayer is ConvolutionLayer)
                 {
                     var CLOutput = outputlayer as ConvolutionLayer;
-                    Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))));
+                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+                    else { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+                    //Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))));
                 }
             }
             if (calcgradients)

@@ -100,7 +100,7 @@ namespace WGAN1
             List<bool> batchnorms = new List<bool>();
             foreach(string[] s in layers)
             {
-                if (s.Length > 1 && s[1] == "1") { batchnorms.Add(true); continue; }
+                if (s.Length > 3 && s[3] == "1") { batchnorms.Add(true); continue; }
                 batchnorms.Add(false); 
             }
             return batchnorms;
@@ -124,7 +124,7 @@ namespace WGAN1
             List<bool> tanhs = new List<bool>();
             foreach (string[] s in layers)
             {
-                if (s.Length > 3 && s[3] == "1") { tanhs.Add(true); continue; }
+                if (s.Length > 4 && s[4] == "1") { tanhs.Add(true); continue; }
                 tanhs.Add(false);
             }
             return tanhs;
@@ -143,7 +143,7 @@ namespace WGAN1
             for (int i = 0; i < layers.Count; i++)
             {
                 int ncount;
-                if (layers[i][0] == "s")
+                if (layers[i][0][0] == 's')
                 {
                     nnlayers.Add(new SumLayer(priorsize, priorsize));
                     continue;
@@ -153,36 +153,68 @@ namespace WGAN1
                     ncount = int.Parse(layers[i][1]);
                 }
                 //If a convolution
-                if (layers[i][0] == "c")
+                if (layers[i][0][0] == 'c')
                 {
                     nnlayers.Add(new ConvolutionLayer(ncount, priorsize));
                     var convlayer = (nnlayers[i] as ConvolutionLayer);
                     int sqrtpriorsize = (int)Math.Sqrt(priorsize);
 
-                    priorsize = (sqrtpriorsize - ncount);
-
-                    if (layers[i].Length == 7) 
+                    //Upscale if specified
+                    if (layers[i][0].Length > 1)
                     {
-                        convlayer.Stride = int.Parse(layers[i][6].ToString());
-                        priorsize /= convlayer.Stride;
-                        priorsize += 1;
+                        convlayer.DownOrUp = false;
+                        priorsize = (sqrtpriorsize - 1);
+                        if (layers[i].Length == 7)
+                        {
+                            convlayer.Stride = int.Parse(layers[i][6].ToString());
+                            priorsize /= convlayer.Stride;
 
-                        if (int.TryParse(layers[i][5], out int result)) { convlayer.PadSize = result; }
-                        //Calc pad size needed to return to the original size
-                        else { convlayer.PadSize = (sqrtpriorsize - priorsize) / 2; }
+                            priorsize += ncount;
 
-                        priorsize += 2 * convlayer.PadSize;
+                            //Probably don't want to pad an upscaler, but w/e
+                            if (int.TryParse(layers[i][5], out int result)) { convlayer.PadSize = result; }
+                            //Default to 0 padding
+                            else { convlayer.PadSize = 0; }
+
+                            priorsize += 2 * convlayer.PadSize;
+                        }
+                        else
+                        {
+                            convlayer.PadSize = 0;
+                            convlayer.Stride = 1;
+                            priorsize -= 1;
+                        }
                     }
-                    else 
+                    //Otherwise downscale
+                    else
                     {
-                        convlayer.PadSize = 0;
-                        convlayer.Stride = 1;
-                        priorsize += 1;
+                        convlayer.DownOrUp = true;
+                        priorsize = (sqrtpriorsize - ncount);
+
+                        if (layers[i].Length == 7)
+                        {
+                            convlayer.Stride = int.Parse(layers[i][6].ToString());
+                            priorsize /= convlayer.Stride;
+                            priorsize += 1;
+
+                            if (int.TryParse(layers[i][5], out int result)) { convlayer.PadSize = result; }
+                            //Calc pad size needed to return to the original size
+                            else { convlayer.PadSize = (sqrtpriorsize - priorsize) / 2; }
+
+                            priorsize += 2 * convlayer.PadSize;
+                        }
+                        else
+                        {
+                            convlayer.PadSize = 0;
+                            convlayer.Stride = 1;
+                            priorsize += 1;
+                        }
                     }
+                  
                     priorsize *= priorsize;
                     continue;
                 }
-                if (layers[i][0] == "f")
+                if (layers[i][0][0] == 'f')
                 {
                     nnlayers.Add(new FullyConnectedLayer(ncount, priorsize));
                     priorsize = ncount;
@@ -322,8 +354,10 @@ namespace WGAN1
         }
         private List<string> Default(bool cog)
         {
-            //[0] is type of layer
+            //[0] is type of layer 
+            //Convlayers downscale by default, add any char to make it upscale
             //[1] is count of layer
+            //Sumlayers don't need a count, convlayers' count is kernelsize not outputsize
             //Defaulted to [false], [false], [false]
             //[2] is whether it is a residual
             //[3] is whether it batchnorms
@@ -334,13 +368,13 @@ namespace WGAN1
             var list = new List<string>();
             if (cog)
             {
-                list.Add("c,3,0,0,1,0,1");
-                list.Add("c,3,0,0,1,0,1");
+                list.Add("c,5,0,0,1,0,1");
+                list.Add("c,5,0,0,1,0,1");
                 list.Add("c,5,1,1,1,0,1");
 
                 list.Add("c,3,0,0,1,x,1");
                 list.Add("c,3,0,0,1,x,1");
-                list.Add("c,5,0,1,1,x,1");
+                list.Add("c,3,0,1,1,x,1");
 
                 list.Add("s");
                 list.Add("f,150,1,0,1");
@@ -349,41 +383,37 @@ namespace WGAN1
             }
             else
             {
-                list.Add("c,3,1,1,1,x,1");
-                list.Add("c,3,0,1,1,x,1");
-                list.Add("s");
+                list.Add("c,3,0,1,1,0,1");
+                list.Add("cu,3,0,1,1,x,1");
+                list.Add("c,3,0,1,1,0,1");
+                list.Add("cu,3,0,1,1,x,1");
+                list.Add("c,3,0,1,1,0,1");
+                list.Add("cu,3,0,1,1,x,1");
+                list.Add("s, -1, 1");
 
-                list.Add("c,5,1,1,1,x,1");
-                list.Add("c,5,0,1,1,x,1");
-                list.Add("s");
+                list.Add("c,2,0,1,1,0,1");
+                list.Add("cu,2,0,1,1,x,1");
+                list.Add("c,2,0,1,1,0,1");
+                list.Add("cu,2,0,1,1,x,1");
+                list.Add("c,2,0,1,1,0,1");
+                list.Add("cu,2,0,1,1,x,1");
+                list.Add("s, -1, 1");
 
-                list.Add("c,7,1,1,1,x,1");
-                list.Add("c,7,0,0,1,x,1");
-                list.Add("s");
+                list.Add("c,5,0,1,1,0,1");
+                list.Add("cu,5,0,1,1,x,1");
+                list.Add("c,5,0,1,1,0,1");
+                list.Add("cu,5,0,1,1,x,1");
+                list.Add("c,5,0,1,1,0,1");
+                list.Add("cu,5,0,1,1,x,1");
+                list.Add("s, -1, 1");
 
-                list.Add("c,3,1,1,1,x,1");
-                list.Add("c,3,0,1,1,x,1");
-                list.Add("s");
-
-                list.Add("c,5,1,1,1,x,1");
-                list.Add("c,5,0,1,1,x,1");
-                list.Add("s");
-
-                list.Add("c,7,1,1,1,x,1");
-                list.Add("c,7,0,0,1,x,1");
-                list.Add("s");
-
-                list.Add("c,3,1,1,1,x,1");
-                list.Add("c,3,0,1,1,x,1");
-                list.Add("s");
-
-                list.Add("c,5,1,1,1,x,1");
-                list.Add("c,5,0,1,1,x,1");
-                list.Add("s");
-
-                list.Add("c,7,1,1,1,x,1");
-                list.Add("c,7,0,0,1,x,1");
-                list.Add("s");
+                list.Add("c,5,0,1,1,0,1");
+                list.Add("cu,5,0,1,1,x,1");
+                list.Add("c,5,0,1,1,0,1");
+                list.Add("cu,5,0,1,1,x,1");
+                list.Add("c,5,0,1,1,0,1");
+                list.Add("cu,5,0,1,1,x,1");
+                list.Add("s, -1, 1");
             }
             return list;
         }
@@ -438,7 +468,7 @@ namespace WGAN1
         {
             if (LayerLB.SelectedIndex < 0) { return; }
             var layers = Split(ActiveLayers);
-            if (LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'S')
+            if (ActiveLayers[LayerLB.SelectedIndex][0] == 's')
             {
                 LayerCountTxt.Text = null;
             }
@@ -453,8 +483,9 @@ namespace WGAN1
             if (layers[LayerLB.SelectedIndex].Length > 3) { TanhCB.Checked = layers[LayerLB.SelectedIndex][4] == "1"; }
             else { TanhCB.Checked = false; }
 
-            //if (ActiveLayers[LayerLB.SelectedIndex][0] == 'c')
-            //{ UpDownCB.Show(); UpDownCB.Checked = LayerTypes[LayerLB.SelectedIndex][1] == 'd'; }
+            if (ActiveLayers[LayerLB.SelectedIndex][0] == 'c')
+            { UpDownCB.Show(); UpDownCB.Checked = ActiveLayers[LayerLB.SelectedIndex][1] != ','; }
+            else { UpDownCB.Hide(); }
         }
 
         private void UpBtn_Click(object sender, EventArgs e)
@@ -526,7 +557,7 @@ namespace WGAN1
         private void LayerCountTxt_TextChanged(object sender, EventArgs e)
         {
             if (LayerLB.SelectedIndex == -1) { return; }
-            if (LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'S') { return; }
+            if (ActiveLayers[LayerLB.SelectedIndex].ToString()[0] == 's') { return; }
             if (LayerLB.SelectedIndex == LayerLB.Items.Count - 1) { return; }
 
             if (!(int.TryParse(LayerCountTxt.Text, out int result)) || result > 100 || result < 1)
@@ -551,7 +582,8 @@ namespace WGAN1
         {
             if (LayerLB.Items.Count == 0) { return; }
             if (LayerLB.SelectedIndex == ActiveLayers.Count - 1) { MessageBox.Show("Can't change the output layer"); return; }
-            int result = int.Parse(LayerCountTxt.Text);
+            bool valid = int.TryParse(LayerCountTxt.Text, out int result);
+            if (!valid) { return; }
             string type = null;
             if (LayerTypeCB.Text == "Fully Connected") { type = "f"; }
             if (LayerTypeCB.Text == "Convolution")
@@ -602,10 +634,10 @@ namespace WGAN1
             for (int i = 0; i < ActiveLayers.Count; i++)
             {
                 string description = "";
-                if (layers[i][0] == "c") { description = "Convolution, "; }
-                if (layers[i][0] == "f") { description = "Fully Connected, "; }
-                if (layers[i][0] == "s") { description = "Sum"; }
-                if (layers[i].Length > 1 && layers[i][0] != "s") { description += layers[i][1].ToString(); }
+                if (layers[i][0][0] == 'c') { description = "Convolution, "; }
+                if (layers[i][0][0] == 'f') { description = "Fully Connected, "; }
+                if (layers[i][0][0] == 's') { description = "Sum"; }
+                if (layers[i].Length > 1 && layers[i][0][0] != 's') { description += layers[i][1].ToString(); }
                 LayerLB.Items.Add("[" + i + "] " + description);
             }
         }
@@ -622,6 +654,8 @@ namespace WGAN1
                 DefaultBtn_Click(sender, e); return;
             }
             RefreshLayerLB();
+            UpDownCB.Hide();
+            LayerCountTxt.Text = null;
         }
         private void Swap(bool active, int indexA, int indexB)
         {

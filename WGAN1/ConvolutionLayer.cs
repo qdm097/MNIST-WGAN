@@ -23,6 +23,7 @@ namespace WGAN1
         public double AvgUpdate { get; set; }
         public int Stride { get; set; }
         public int PadSize { get; set; }
+        public bool DownOrUp { get; set; }
 
         public ConvolutionLayer(int kernelsize, int inputsize)
         {
@@ -102,7 +103,7 @@ namespace WGAN1
                     {
                         for (int j = 0; j < outputlayer.InputLength; j++)
                         {
-                            double zvalderriv = outputlayer.ZVals[k] - ZVals[j];
+                            double zvalderriv = ZVals[j];
                             if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
                             Errors[j] += zvalderriv * outputlayer.Errors[k];
                         }
@@ -128,10 +129,9 @@ namespace WGAN1
 
                     var CLOutput = outputlayer as ConvolutionLayer;
                     //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
-
+                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+                    else { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
                     //Upscale to find errors
-                    Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))));
-
                 }
                 //Gradients = Convolve(Maths.Convert(Errors), Input);
             }
@@ -139,7 +139,8 @@ namespace WGAN1
             if (calcgradients) 
             { 
                 double[,] Input = Maths.Convert(input);
-                Gradients = Convolve(Maths.Convert(Maths.Scale(-1, Errors)), Pad(Input));
+                if (DownOrUp) { Convolve(Maths.Convert(Maths.Scale(-1, Errors)), Pad(Input)); }
+                else { Convolve(Pad(Input), Maths.Convert(Maths.Scale(-1, Errors))); }
             }
         }
         /// <summary>
@@ -155,10 +156,12 @@ namespace WGAN1
         }
         public void Calculate(double[,] input, bool isoutput)
         {
-            //Padded upscaling
-            //var output = COG ? Convolve(Weights, input) : Convolve(Weights, Pad(input));
+            //Padded scaling
+            var output = DownOrUp ? Convolve(Weights, Pad(input)) : FullConvolve(Weights, Pad(input));
 
-            var output = Pad(Convolve(Weights, input));
+            //Old only downscaler
+            //var output = Pad(Convolve(Weights, input));
+
             ZVals = Maths.Convert(output);
         }
         public double[,] Convolve(double[,] filter, double[,] input)

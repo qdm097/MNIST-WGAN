@@ -40,7 +40,7 @@ namespace WGAN1
                     {
                         for (int j = 0; j < outputlayer.InputLength; j++)
                         {
-                            double zvalderriv = outputlayer.ZVals[k] - ZVals[j];
+                            double zvalderriv = ZVals[j];
                             if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
                             Errors[j] += zvalderriv * outputlayer.Errors[k];
                         }

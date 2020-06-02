@@ -114,11 +114,13 @@ namespace WGAN1
                 int kernelsize = 0;
                 int padsize = 0;
                 int stride = 0;
+                bool downorup = false;
                 if (type == "2")
                 { 
                     kernelsize = int.Parse(text[iterator]); iterator++;
                     padsize = int.Parse(text[iterator]); iterator++;
                     stride = int.Parse(text[iterator]); iterator++;
+                    if (text[iterator] == "1") { downorup = true; } iterator++;
                 }
                 int LayerCount = int.Parse(text[iterator]); iterator++;
                 int InputLayerCount = int.Parse(text[iterator]); iterator++;
@@ -135,6 +137,7 @@ namespace WGAN1
                     nn.Layers[i].Length = LayerCount;
                     (nn.Layers[i] as ConvolutionLayer).PadSize = padsize;
                     (nn.Layers[i] as ConvolutionLayer).Stride = stride;
+                    (nn.Layers[i] as ConvolutionLayer).DownOrUp = downorup;
                 }
 
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
@@ -172,7 +175,8 @@ namespace WGAN1
                 {
                     sw.Write("2," + (nn.Layers[i] as ConvolutionLayer).KernelSize.ToString() + ","
                         + ((nn.Layers[i] as ConvolutionLayer).PadSize.ToString()) + ","
-                        + (nn.Layers[i] as ConvolutionLayer).Stride.ToString() + ",");
+                        + (nn.Layers[i] as ConvolutionLayer).Stride.ToString() + ","
+                        + ((nn.Layers[i] as ConvolutionLayer).DownOrUp ? "1" : "0"));
                 }
                 sw.Write(nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ","
                     + (nn.ResidualLayers[i] ? "1" : "0") + "," + (nn.BatchNormLayers[i] ? "1" : "0") + ","
