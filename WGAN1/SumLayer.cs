@@ -11,6 +11,7 @@ namespace WGAN1
         public double[,] Weights { get { throw new NotImplementedException(); } set { throw new NotImplementedException(); } }
         public double[] ZVals { get; set; }
         public double[] Errors { get; set; }
+        public int OutputLength { get; set; }
         public int Length { get; set; }
         public int InputLength { get; set; }
         public bool UsesTanh { get; set; }
@@ -62,13 +63,30 @@ namespace WGAN1
                 }
                 if (outputlayer is ConvolutionLayer)
                 {
-
                     var CLOutput = outputlayer as ConvolutionLayer;
-                    //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
-
-                    //Upscale to find errors
-                    Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))));
-
+                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+                    else { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
+                }
+                if (outputlayer is PoolingLayer)
+                {
+                    var PLOutput = outputlayer as PoolingLayer;
+                    if (PLOutput.DownOrUp)
+                    {
+                        int iterator = 0;
+                        Errors = new double[Length];
+                        var wets = Maths.Convert(PLOutput.Weights);
+                        for (int i = 0; i < Length; i++)
+                        {
+                            if (wets[i] == 0) { continue; }
+                            Errors[i] = PLOutput.Errors[iterator];
+                            iterator++;
+                        }
+                    }
+                    else
+                    {
+                        PLOutput.Calculate(PLOutput.Errors, false);
+                        Errors = PLOutput.ZVals;
+                    }
                 }
             }
         }

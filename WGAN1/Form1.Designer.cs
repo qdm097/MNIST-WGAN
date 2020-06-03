@@ -67,6 +67,8 @@
             this.ResidualCB = new System.Windows.Forms.CheckBox();
             this.BatchnormCB = new System.Windows.Forms.CheckBox();
             this.TanhCB = new System.Windows.Forms.CheckBox();
+            this.OutputCountTxt = new System.Windows.Forms.TextBox();
+            this.label11 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.NumPB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -202,7 +204,7 @@
             // 
             // ResetBtn
             // 
-            this.ResetBtn.Location = new System.Drawing.Point(1495, 630);
+            this.ResetBtn.Location = new System.Drawing.Point(1479, 611);
             this.ResetBtn.Name = "ResetBtn";
             this.ResetBtn.Size = new System.Drawing.Size(142, 45);
             this.ResetBtn.TabIndex = 15;
@@ -417,21 +419,40 @@
             this.BatchnormCB.Text = "Batchnorm";
             this.BatchnormCB.UseVisualStyleBackColor = true;
             // 
-            // ReLuCB
+            // TanhCB
             // 
             this.TanhCB.AutoSize = true;
             this.TanhCB.Location = new System.Drawing.Point(1321, 719);
-            this.TanhCB.Name = "ReLuCB";
+            this.TanhCB.Name = "TanhCB";
             this.TanhCB.Size = new System.Drawing.Size(139, 29);
             this.TanhCB.TabIndex = 38;
             this.TanhCB.Text = "Use ReLu";
             this.TanhCB.UseVisualStyleBackColor = true;
+            // 
+            // OutputCountTxt
+            // 
+            this.OutputCountTxt.Location = new System.Drawing.Point(1479, 570);
+            this.OutputCountTxt.Name = "OutputCountTxt";
+            this.OutputCountTxt.ReadOnly = true;
+            this.OutputCountTxt.Size = new System.Drawing.Size(142, 31);
+            this.OutputCountTxt.TabIndex = 40;
+            // 
+            // label11
+            // 
+            this.label11.AutoSize = true;
+            this.label11.Location = new System.Drawing.Point(1479, 542);
+            this.label11.Name = "label11";
+            this.label11.Size = new System.Drawing.Size(139, 25);
+            this.label11.TabIndex = 39;
+            this.label11.Text = "Output Count";
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1743, 760);
+            this.Controls.Add(this.OutputCountTxt);
+            this.Controls.Add(this.label11);
             this.Controls.Add(this.TanhCB);
             this.Controls.Add(this.BatchnormCB);
             this.Controls.Add(this.ResidualCB);
@@ -520,6 +541,8 @@
         private System.Windows.Forms.CheckBox ResidualCB;
         private System.Windows.Forms.CheckBox BatchnormCB;
         private System.Windows.Forms.CheckBox TanhCB;
+        private System.Windows.Forms.TextBox OutputCountTxt;
+        private System.Windows.Forms.Label label11;
     }
 }
 

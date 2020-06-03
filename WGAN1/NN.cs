@@ -29,6 +29,7 @@ namespace WGAN1
         public static bool Training = false;
         public static bool Clear = false;
         public static bool Save = true;
+        public int OutputLength { get; set; }
         int Trials = 0;
         public double Error = 0;
 
@@ -50,6 +51,7 @@ namespace WGAN1
                 if (TanhLayers[i]) { Layers[i].UsesTanh = true; }
                 else { Layers[i].UsesTanh = false; }
             }
+            OutputLength = Layers[NumLayers - 1].OutputLength;
             return this;
         }
         /// <summary>
@@ -302,7 +304,7 @@ namespace WGAN1
                         {
                             Residuals.Add(new double[layer.InputLength]);
                         }
-                    }
+                    } 
                     (layer as SumLayer).Calculate(Residuals[i], inputs[i]);
                 }
                 else { layer.Calculate(inputs[i], isoutput); }
@@ -375,7 +377,7 @@ namespace WGAN1
         {
             for (int i = 0; i < NumLayers; i++)
             {
-                if (Layers[i] is SumLayer) { continue; }
+                if (Layers[i] is SumLayer || Layers[i] is PoolingLayer) { continue; }
                 Layers[i].Descend(m, batchnorm);
             }
         }

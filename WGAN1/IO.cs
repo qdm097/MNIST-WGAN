@@ -122,6 +122,11 @@ namespace WGAN1
                     stride = int.Parse(text[iterator]); iterator++;
                     if (text[iterator] == "1") { downorup = true; } iterator++;
                 }
+                if (type == "3")
+                {
+                    downorup = text[iterator] == "1"; iterator++;
+                    kernelsize = int.Parse(text[iterator]); iterator++;
+                }
                 int LayerCount = int.Parse(text[iterator]); iterator++;
                 int InputLayerCount = int.Parse(text[iterator]); iterator++;
                 nn.ResidualLayers.Add(text[iterator] == "1"); iterator++;
@@ -132,14 +137,18 @@ namespace WGAN1
                 //No weights exist in a sum layer
                 if (type == "1") { nn.Layers.Add(new SumLayer(LayerCount, InputLayerCount)); continue; }
                 if (type == "2")
-                { 
-                    nn.Layers.Add(new ConvolutionLayer(kernelsize, InputLayerCount)); 
+                {
+                    nn.Layers.Add(new ConvolutionLayer(kernelsize, InputLayerCount));
+                    var conv = nn.Layers[i] as ConvolutionLayer;
                     nn.Layers[i].Length = LayerCount;
-                    (nn.Layers[i] as ConvolutionLayer).PadSize = padsize;
-                    (nn.Layers[i] as ConvolutionLayer).Stride = stride;
-                    (nn.Layers[i] as ConvolutionLayer).DownOrUp = downorup;
+                    conv.PadSize = padsize; conv.Stride = stride; conv.DownOrUp = downorup;
                 }
-
+                if (type == "3")
+                {
+                    nn.Layers.Add(new PoolingLayer(downorup, kernelsize, InputLayerCount));
+                    //No weights exist in a pooling layer
+                    continue;
+                }
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
                     for (int jj = 0; jj < nn.Layers[i].Weights.GetLength(1); jj++)
@@ -173,16 +182,20 @@ namespace WGAN1
                 }
                 if (nn.Layers[i] is ConvolutionLayer)
                 {
-                    sw.Write("2," + (nn.Layers[i] as ConvolutionLayer).KernelSize.ToString() + ","
-                        + ((nn.Layers[i] as ConvolutionLayer).PadSize.ToString()) + ","
-                        + (nn.Layers[i] as ConvolutionLayer).Stride.ToString() + ","
-                        + ((nn.Layers[i] as ConvolutionLayer).DownOrUp ? "1" : "0"));
+                    var conv = nn.Layers[i] as ConvolutionLayer;
+                    sw.Write("2," + conv.KernelSize.ToString() + ","+ conv.PadSize.ToString() 
+                        + "," + conv.Stride.ToString() + "," + (conv.DownOrUp ? "1," : "0,"));
+                }
+                if (nn.Layers[i] is PoolingLayer)
+                {
+                    var pool = nn.Layers[i] as PoolingLayer;
+                    sw.Write("3," + (pool.DownOrUp ? "1," : "0,") + pool.PoolSize + ",");
                 }
                 sw.Write(nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ","
-                    + (nn.ResidualLayers[i] ? "1" : "0") + "," + (nn.BatchNormLayers[i] ? "1" : "0") + ","
-                    + (nn.TanhLayers[i] ? "1" : "0") + ",");
+                    + (nn.ResidualLayers[i] ? "1," : "0,") + (nn.BatchNormLayers[i] ? "1," : "0,")
+                    + (nn.TanhLayers[i] ? "1," : "0,"));
                 //Sum layers have no weights
-                if (nn.Layers[i] is SumLayer) { continue; }
+                if (nn.Layers[i] is SumLayer || nn.Layers[i] is PoolingLayer) { continue; }
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)
                 {
                     for (int jj = 0; jj < nn.Layers[i].Weights.GetLength(1); jj++)

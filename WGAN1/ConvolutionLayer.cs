@@ -14,6 +14,7 @@ namespace WGAN1
         double[,] RMSGrad { get; set; }
         double[,] Gradients { get; set; }
         double[,] Updates { get; set; }
+        public int OutputLength { get; set; }
         public int Length { get; set; }
         public int KernelSize { get; set; }
         public int InputLength { get; set; }
@@ -132,6 +133,27 @@ namespace WGAN1
                     if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
                     else { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
                     //Upscale to find errors
+                }
+                if (outputlayer is PoolingLayer)
+                {
+                    var PLOutput = outputlayer as PoolingLayer;
+                    if (PLOutput.DownOrUp)
+                    {
+                        int iterator = 0;
+                        Errors = new double[Length];
+                        var wets = Maths.Convert(PLOutput.Weights);
+                        for (int i = 0; i < Length; i++)
+                        {
+                            if (wets[i] == 0) { continue; }
+                            Errors[i] = PLOutput.Errors[iterator];
+                            iterator++;
+                        }
+                    }
+                    else
+                    {
+                        PLOutput.Calculate(PLOutput.Errors, false);
+                        Errors = PLOutput.ZVals;
+                    }
                 }
                 //Gradients = Convolve(Maths.Convert(Errors), Input);
             }

@@ -73,6 +73,7 @@
     <Compile Include="IO.cs" />
     <Compile Include="FullyConnectedLayer.cs" />
     <Compile Include="NN.cs" />
+    <Compile Include="PoolingLayer.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SumLayer.cs" />

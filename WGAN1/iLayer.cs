@@ -12,6 +12,7 @@ namespace WGAN1
         double[,] Weights { get; set; }
         double[] ZVals { get; set; }
         double[] Errors { get; set; }
+        int OutputLength { get; set; }
         int Length { get; set; }
         int InputLength { get; set; }
         bool UsesTanh { get; set; }
