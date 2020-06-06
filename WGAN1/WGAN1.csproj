@@ -62,7 +62,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConvolutionLayer.cs" />
-    <Compile Include="iLayer.cs" />
+    <Compile Include="Layer.cs" />
     <Compile Include="Maths.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>

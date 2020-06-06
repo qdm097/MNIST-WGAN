@@ -42,15 +42,7 @@ namespace WGAN1
         }
         public static double Tanh(double number)
         {
-            double x = (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
-            if (x == 0)
-            {
-                return number;
-            }
-            else
-            {
-                return x;
-            }
+            return (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
         }
         public static double TanhDerriv(double number)
         {
@@ -59,13 +51,14 @@ namespace WGAN1
         public static double[] Rescale(double[] array, double mean, double stddev)
         {
             //zscore
-            var arraymean = CalcMean(array);
-            var output = Normalize(array, arraymean, CalcStdDev(array, arraymean));
+            double[] output = new double[array.Length];
+            //var arraymean = CalcMean(array);
+            //var output = Normalize(array, arraymean, CalcStdDev(array, arraymean));
             //Rescale the dataset (opposite of zscore)
             for (int i = 0; i < array.Length; i++)
             {
                 // min + ((array[i] - setmin) * (max - min) / (setmax - setmin))
-                output[i] = (output[i] * stddev) + mean;
+                output[i] = (array[i] * stddev) + mean;
             }
             return output;
         }
@@ -218,10 +211,29 @@ namespace WGAN1
         {
             double stddev = 0;
             //Calc std dev of data
-            foreach (double d in array) { stddev += (d - mean) * (d - mean); }
+            foreach (double d in array) { stddev += ((d - mean) * (d - mean)); }
             stddev /= array.Length;
             stddev = Math.Sqrt(stddev);
             return stddev;
+        }
+        public static List<double[]> BatchNormalize(List<double[]> input)
+        {
+            double mean = 0, stddev = 0;
+            foreach (double[] d in input) { double temp = CalcMean(d); mean += temp; stddev += CalcStdDev(d, temp); }
+            return BatchNormalize(input, mean, stddev);
+        }
+        public static List<double[]> BatchNormalize(List<double[]> input, double mean, double stddev)
+        {
+            List<double[]> output = new List<double[]>();
+            for (int i = 0; i < input.Count; i++)
+            {
+                output.Add(new double[input[i].Length]);
+                for (int ii = 0; ii < input[i].Length; ii++)
+                {
+                    output[i][ii] = (input[i][ii] - mean) / stddev;
+                }
+            }
+            return output;
         }
     }
 }

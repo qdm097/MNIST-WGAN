@@ -22,15 +22,19 @@ namespace WGAN1
         int imgspeed = 0;
 
         int resolution = 28;
-        int latentsize = 784;
+        int latentsize = 49;
         //The maximum RMSE allowed before the network stops learning
         public static int Cutoff = 10;
         bool dt;
         public bool DoneTraining { get { return dt; } set { dt = value; if (dt) { TrainBtn.Enabled = true; dt = false; } } }
         string cs;
         public string CScore { get { return cs; } set { cs = value; CScoreTxt.Text = value; } }
+        string cpc;
+        public string CPerc { get { return cpc; } set { cpc = value; CPercCorrectTxt.Text = value; } }
         string gs;
         public string GScore { get { return gs; } set { gs = value; GScoreTxt.Text = value; } }
+        string gpc;
+        public string GPerc { get { return gpc; } set { gpc = value; GPercCorrectTxt.Text = value; } }
         int e;
         public int Epoch { get { return e; } set { e = value; EpochTxt.Text = value.ToString(); } }
         int[,] img;
@@ -52,8 +56,8 @@ namespace WGAN1
             LayerTypeCB.SelectedIndex = 0;
 
             Epoch = 0;
-            InputNormCB.Checked = true;
-            GradientNormCB.Checked = true;
+            //InputNormCB.Checked = true;
+            //GradientNormCB.Checked = true;
             ClipTxt.Text = NN.ClipParameter.ToString();
             AlphaTxt.Text = NN.LearningRate.ToString();
             RMSDTxt.Text = NN.RMSDecay.ToString();
@@ -82,7 +86,8 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                 NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);               
+                NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);   
+                //NN.TestTrain(Critic, batchsize, imgspeed, this);
             });
             thread.IsBackground = true;
             thread.Start();
@@ -131,7 +136,7 @@ namespace WGAN1
             }
             return tanhs;
         }
-        List<iLayer> GenerateLayers(bool cog)
+        List<Layer> GenerateLayers(bool cog)
         {
             int priorsize;
             if (cog) { priorsize = resolution * resolution; }
@@ -141,7 +146,7 @@ namespace WGAN1
             {
                 layers = Split(InactiveLayers);
             }
-            List<iLayer> nnlayers = new List<iLayer>();
+            List<Layer> nnlayers = new List<Layer>();
             for (int i = 0; i < layers.Count; i++)
             {
                 int ncount;
@@ -286,12 +291,31 @@ namespace WGAN1
                     {
                         for (int ii = 0; ii < scale; ii++)
                         {
-                            scaled[(j * scale) + i, (jj * scale) + ii] = input[jj, j];
+                            scaled[(j * scale) + i, (jj * scale) + ii] = input[j, jj];
                         }
                     }
                 }
             }
             return scaled;
+        }
+        public static double[,] Rescale(double[,] array)
+        {
+            double setmin = 0, setmax = 0;
+            //Find the minimum and maximum values of the dataset
+            foreach (double d in array)
+            {
+                if (d > setmax) { setmax = d; }
+                if (d < setmin) { setmin = d; }
+            }
+            //Rescale the dataset
+            for (int i = 0; i < array.GetLength(0); i++)
+            {
+                for (int ii = 0; ii < array.GetLength(1); ii++)
+                {
+                    array[i, ii] = 255 * ((array[i, ii] - setmin) / (setmax - setmin));
+                }
+            }
+            return array;
         }
         public static Bitmap FromTwoDimIntArrayGray(Int32[,] data)
         {
@@ -371,6 +395,7 @@ namespace WGAN1
             //Sumlayers don't need a count, convlayers' count is kernelsize not outputsize
             //Defaulted to [false], [false], [false]
             //[2] is whether it is a residual
+            //Ensure the number of residuals matches the number of sum layers
             //[3] is whether it batchnorms
             //[4] is whether to use Tanh
             //Defaulted to [0], [1]
@@ -390,21 +415,24 @@ namespace WGAN1
                 list.Add("s");
                 list.Add("f,150,1,0,1");
                 list.Add("f,100,1,0,1");
-                list.Add("f,1,0,1,0");
+                //NEVER SET TANH OR BATCHNORM TO TRUE
+                //YOU WILL BE PROVIDED WITH AN ERROR OF 0
+                //WHICH CASCADES TO MAKE ALL ERRORS IN ALL LAYERS NAN
+                list.Add("f,1,0,0,0");
             }
             else
             {
                 //Residual
-                list.Add("c,3,1,1,1,x,1");
+                list.Add("s,-1,1");
 
                 //Residue layer 1
 
                 //2 padded conv layers + sum layer
                 list.Add("c,7,0,1,1,x,1");
                 list.Add("c,7,0,1,1,x,1");
-                list.Add("s,-1,1");
+                list.Add("s");
                 //Upscale
-                list.Add("pu,2,0,1,1");
+                list.Add("pu,2,1,1,1");
                 //ConvT (residual)
                 list.Add("cu,7,1,1,1,0,1");
 
@@ -413,9 +441,9 @@ namespace WGAN1
                 //2 padded conv layers + sum layer
                 list.Add("c,7,0,1,1,x,1");
                 list.Add("c,7,0,1,1,x,1");
-                list.Add("s,-1,1");
+                list.Add("s");
                 //Upscale
-                list.Add("pu,2,0,1,1");
+                list.Add("pu,2,1,1,1");
                 //ConvT (residual)
                 list.Add("cu,7,1,1,1,0,1");
 
@@ -424,17 +452,15 @@ namespace WGAN1
                 //2 padded conv layers + sum layer
                 list.Add("c,7,0,1,1,x,1");
                 list.Add("c,7,0,1,1,x,1");
-                list.Add("s,-1,1");
+                list.Add("s");
                 //Upscale
                 list.Add("pu,2,0,1,1");
-                //ConvT (residual)
-                list.Add("cu,7,1,1,1,0,1");
+                //ConvT
+                list.Add("cu,7,0,1,1,0,1");
 
-                list.Add("c,17,0,1,1,0,3");
-                list.Add("c,11,0,1,1,0,2");
-                list.Add("c,10,0,1,1,0,1");
-
-                //list.Add("s, -1, 1");
+                list.Add("c,25,0,1,1,0,1");
+                list.Add("c,24,0,1,1,0,1");
+                list.Add("c,24,0,1,1,0,1");
             }
             return list;
         }

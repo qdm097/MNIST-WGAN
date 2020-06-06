@@ -7,16 +7,8 @@ using System.Threading.Tasks;
 
 namespace WGAN1
 {
-    class FullyConnectedLayer : iLayer
+    class FullyConnectedLayer : Layer
     {
-        public int OutputLength { get; set; }
-        public int Length { get; set; }
-        public int InputLength { get; set; }
-        public bool UsesTanh { get; set; }
-        public double[] ZVals { get; set; }
-        public double[] Errors { get; set; }
-        //Weights
-        public double[,] Weights { get; set; }
         double[,] WRMSGrad { get; set; }
         double[,] WeightGradient { get; set; }
         double[,] WUpdates { get; set; }
@@ -37,7 +29,7 @@ namespace WGAN1
             Weights = new double[l, il];
             Biases = new double[l];
         }
-        public iLayer Init(bool isoutput)
+        public override Layer Init(bool isoutput)
         {
             var r = new Random();
             //All layers have weights
@@ -60,23 +52,25 @@ namespace WGAN1
         /// <param name="batchsize">The number of trials run per cycle</param>
         /// <param name="clipparameter">What the max/min </param>
         /// <param name="RMSDecay">How quickly the RMS gradients decay</param>
-        public void Descend(int batchsize, bool batchnorm)
+        public override void Descend(int batchsize, bool batchnorm)
         {
             //Calculate gradients
             WUpdates = new double[Length, InputLength];
             BUpdates = new double[Length];
+
             for (int i = 0; i < Length; i++)
             {
                 for (int ii = 0; ii < InputLength; ii++)
                 {
                     //Normal gradient descent update
-                    WUpdates[i, ii] = NN.LearningRate * WeightGradient[i, ii] * (-2d / batchsize);
+                    WUpdates[i, ii] = WeightGradient[i, ii] * (-2d / batchsize);
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
-                        WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (WUpdates[i, ii] * WUpdates[i, ii])) + NN.Infinitesimal;
-                        WUpdates[i, ii] = (NN.LearningRate / Math.Sqrt(WRMSGrad[i, ii])) * WUpdates[i, ii];
+                        WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (WUpdates[i, ii] * WUpdates[i, ii]));
+                        WUpdates[i, ii] = (WUpdates[i, ii] / (Math.Sqrt(WRMSGrad[i, ii] + NN.Infinitesimal)));
                     }
+                    WUpdates[i, ii] *= NN.LearningRate;
                 }
                 //Normal gradient descent update
                 BUpdates[i] = BiasGradient[i] * (-2d / batchsize);
@@ -84,8 +78,9 @@ namespace WGAN1
                 if (NN.UseRMSProp)
                 {
                     BRMSGrad[i] = (BRMSGrad[i] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (BUpdates[i] * BUpdates[i]));
-                    BUpdates[i] = (NN.LearningRate / Math.Sqrt(BRMSGrad[i])) * BUpdates[i];
+                    BUpdates[i] = (BUpdates[i] / (Math.Sqrt(BRMSGrad[i]) + NN.Infinitesimal));
                 }
+                BUpdates[i] *= NN.LearningRate;
             }
             //Gradient normalization
             if (batchnorm) 
@@ -116,7 +111,8 @@ namespace WGAN1
                     if (Biases[i] < -NN.ClipParameter) { Biases[i] = -NN.ClipParameter; }
                 }
             }
-            //Reset gradients (but not RMS gradients)
+
+            //Reset gradients
             WeightGradient = new double[Length, InputLength];
             BiasGradient = new double[Length];
         }
@@ -128,114 +124,48 @@ namespace WGAN1
         /// <summary>
         /// Backpropegation of error and calcluation of gradients
         /// </summary>
-        /// <param name="input">Previous layer's values</param>
+        /// <param name="input">Previous layer's values (only needed if calculating gradients)</param>
         /// <param name="isoutput">Whether the layer is the output layer</param>
-        public void Backprop(double[] input, iLayer outputlayer, double[] outputvals, double correct, bool calcgradients)
+        public override void CalcGradients(List<double[]> inputs, Layer outputlayer)
         {
-            //Calculate errors
-            if (!(outputvals is null))
-            {
-                for (int i = 0; i < Length; i++)
-                {
-                    Errors[i] = 2d * (outputvals[i] - correct);
-                }
-            }
-            else
-            {
-                if (outputlayer is SumLayer)
-                {
-                    //Errors with respect to the output of the convolution
-                    //dl/do
-                    for (int k = 0; k < outputlayer.Length; k++)
-                    {
-                        for (int j = 0; j < outputlayer.InputLength; j++)
-                        {
-                            double zvalderriv = ZVals[j];
-                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
-                            Errors[j] += zvalderriv * outputlayer.Errors[k];
-                        }
-                    }
-                }
-                if (outputlayer is FullyConnectedLayer)
-                {
-                    var FCLOutput = outputlayer as FullyConnectedLayer;
-                    for (int k = 0; k < FCLOutput.Length; k++)
-                    {
-                        for (int j = 0; j < Length; j++)
-                        {
-                            double zvalderriv = outputlayer.ZVals[k];
-                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
-                            Errors[j] += FCLOutput.Weights[k, j] * zvalderriv * FCLOutput.Errors[k];
-                        }
-                    }
-                }
-                if (outputlayer is ConvolutionLayer)
-                {
-                    var CLOutput = outputlayer as ConvolutionLayer;
-                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
-                    else { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
-                    //Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors))));
-                }
-                if (outputlayer is PoolingLayer)
-                {
-                    var PLOutput = outputlayer as PoolingLayer;
-                    if (PLOutput.DownOrUp)
-                    {
-                        int iterator = 0;
-                        Errors = new double[Length];
-                        var wets = Maths.Convert(PLOutput.Weights);
-                        for (int i = 0; i < Length; i++)
-                        {
-                            if (wets[i] == 0) { continue; }
-                            Errors[i] = PLOutput.Errors[iterator];
-                            iterator++;
-                        }
-                    }
-                    else
-                    {
-                        PLOutput.Calculate(PLOutput.Errors, false);
-                        Errors = PLOutput.ZVals;
-                    }
-                }
-            }
-            if (calcgradients)
+            for (int j = 0; j < ZVals.Count; j++)
             {
                 //Calculate gradients
                 for (int i = 0; i < Length; i++)
                 {
-                    double zvalderriv = ZVals[i];
-                    if (UsesTanh) { zvalderriv = Maths.TanhDerriv(ZVals[i]); }
+                    double zvalderriv = ZVals[j][i];
+                    if (UsesTanh) { zvalderriv = Maths.TanhDerriv(ZVals[j][i]); }
 
                     for (int ii = 0; ii < InputLength; ii++)
                     {
                         //Weight gradients
-                        WeightGradient[i, ii] = -1 * input[ii] * zvalderriv * Errors[i];
+                        WeightGradient[i, ii] = inputs[j][ii] * zvalderriv * Errors[j][i];
                     }
-                    if (!(outputvals is null)) { continue; }
+                    if (outputlayer is null) { continue; }
                     //Bias gradients
-                    BiasGradient[i] = -1 * zvalderriv * Errors[i];
+                    BiasGradient[i] = zvalderriv * Errors[j][i];
                 }
             }
         }
-        public void Calculate(double[] input, bool output)
+        public override void Calculate(List<double[]> inputs, bool output)
         {
-            var vals = new double[Length];
-            for (int k = 0; k < Length; k++)
+            ZVals = new List<double[]>();
+            foreach (double[] input in inputs)
             {
-                for (int j = 0; j < InputLength; j++)
+                var vals = new double[Length];
+                for (int k = 0; k < Length; k++)
                 {
-                    vals[k] += Weights[k, j] * input[j];
+                    for (int j = 0; j < InputLength; j++)
+                    {
+                        vals[k] += Weights[k, j] * input[j];
+                    }
+                    if (!output)
+                    {
+                        vals[k] += Biases[k];
+                    }
                 }
-                if (!output)
-                {
-                    vals[k] += Biases[k];
-                }
+                ZVals.Add(vals);
             }
-            ZVals = vals;
-        }
-        public void Calculate(double[,] input, bool output)
-        {
-            Calculate(Maths.Convert(input), output);
         }
     }
 }

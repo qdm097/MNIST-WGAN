@@ -97,7 +97,7 @@ namespace WGAN1
         public static NN Read(bool COG)
         {
             NN nn = new NN();
-            nn.Layers = new List<iLayer>();
+            nn.Layers = new List<Layer>();
             nn.ResidualLayers = new List<bool>();
             nn.BatchNormLayers = new List<bool>();
             nn.TanhLayers = new List<bool>();

@@ -69,6 +69,10 @@
             this.TanhCB = new System.Windows.Forms.CheckBox();
             this.OutputCountTxt = new System.Windows.Forms.TextBox();
             this.label11 = new System.Windows.Forms.Label();
+            this.label12 = new System.Windows.Forms.Label();
+            this.GPercCorrectTxt = new System.Windows.Forms.TextBox();
+            this.label13 = new System.Windows.Forms.Label();
+            this.CPercCorrectTxt = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.NumPB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -359,7 +363,7 @@
             // label9
             // 
             this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(197, 511);
+            this.label9.Location = new System.Drawing.Point(195, 597);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(150, 25);
             this.label9.TabIndex = 32;
@@ -367,7 +371,7 @@
             // 
             // EpochTxt
             // 
-            this.EpochTxt.Location = new System.Drawing.Point(202, 539);
+            this.EpochTxt.Location = new System.Drawing.Point(200, 625);
             this.EpochTxt.Name = "EpochTxt";
             this.EpochTxt.ReadOnly = true;
             this.EpochTxt.Size = new System.Drawing.Size(142, 31);
@@ -446,11 +450,49 @@
             this.label11.TabIndex = 39;
             this.label11.Text = "Output Count";
             // 
+            // label12
+            // 
+            this.label12.AutoSize = true;
+            this.label12.Location = new System.Drawing.Point(261, 514);
+            this.label12.Name = "label12";
+            this.label12.Size = new System.Drawing.Size(203, 25);
+            this.label12.TabIndex = 44;
+            this.label12.Text = "Generator %Correct";
+            // 
+            // GPercCorrectTxt
+            // 
+            this.GPercCorrectTxt.Location = new System.Drawing.Point(266, 542);
+            this.GPercCorrectTxt.Name = "GPercCorrectTxt";
+            this.GPercCorrectTxt.ReadOnly = true;
+            this.GPercCorrectTxt.Size = new System.Drawing.Size(142, 31);
+            this.GPercCorrectTxt.TabIndex = 43;
+            // 
+            // label13
+            // 
+            this.label13.AutoSize = true;
+            this.label13.Location = new System.Drawing.Point(112, 514);
+            this.label13.Name = "label13";
+            this.label13.Size = new System.Drawing.Size(156, 25);
+            this.label13.TabIndex = 42;
+            this.label13.Text = "Critic %Correct";
+            // 
+            // CPercCorrectTxt
+            // 
+            this.CPercCorrectTxt.Location = new System.Drawing.Point(117, 542);
+            this.CPercCorrectTxt.Name = "CPercCorrectTxt";
+            this.CPercCorrectTxt.ReadOnly = true;
+            this.CPercCorrectTxt.Size = new System.Drawing.Size(142, 31);
+            this.CPercCorrectTxt.TabIndex = 41;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1743, 760);
+            this.Controls.Add(this.label12);
+            this.Controls.Add(this.GPercCorrectTxt);
+            this.Controls.Add(this.label13);
+            this.Controls.Add(this.CPercCorrectTxt);
             this.Controls.Add(this.OutputCountTxt);
             this.Controls.Add(this.label11);
             this.Controls.Add(this.TanhCB);
@@ -543,6 +585,10 @@
         private System.Windows.Forms.CheckBox TanhCB;
         private System.Windows.Forms.TextBox OutputCountTxt;
         private System.Windows.Forms.Label label11;
+        private System.Windows.Forms.Label label12;
+        private System.Windows.Forms.TextBox GPercCorrectTxt;
+        private System.Windows.Forms.Label label13;
+        private System.Windows.Forms.TextBox CPercCorrectTxt;
     }
 }
 

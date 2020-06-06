@@ -6,19 +6,18 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Windows.Forms;
 using System.Windows.Markup;
+using System.Globalization;
 
 namespace WGAN1
 {
     class NN
     {
         public int NumLayers { get; set; }
-        public List<iLayer> Layers { get; set; }
+        public List<Layer> Layers { get; set; }
         public List<bool> TanhLayers { get; set; }
         public List<bool> ResidualLayers { get; set; }
         public List<bool> BatchNormLayers { get; set; }
         List<double[]> Residuals { get; set; }
-        List<List<double[]>> Values { get; set; }
-        int ResidualIndex { get; set; }
         public static double LearningRate = 0.00005;
         public static double RMSDecay = .9;
         public static bool UseRMSProp = true;
@@ -32,13 +31,14 @@ namespace WGAN1
         public int OutputLength { get; set; }
         int Trials = 0;
         public double Error = 0;
+        public double PercCorrect = 0;
 
         /// <summary>
         /// Generates a new NN with the specified parameters (using LeCun initialization)
         /// </summary>
         /// <param name="l">Number of layers in the network</param>
         /// <param name="wcs">Number of weights/biases in the network</param>
-        public NN Init(List<iLayer> layers, List<bool> Tanhs, List<bool> residuals, List<bool> batchnorms)
+        public NN Init(List<Layer> layers, List<bool> Tanhs, List<bool> residuals, List<bool> batchnorms)
         {
             Layers = layers;
             NumLayers = Layers.Count;
@@ -47,12 +47,112 @@ namespace WGAN1
             BatchNormLayers = batchnorms;
             for (int i = 0; i < NumLayers; i++)
             {
-                Layers[i].Init(i == NumLayers -1);
+                Layers[i].Init(i == NumLayers - 1);
                 if (TanhLayers[i]) { Layers[i].UsesTanh = true; }
                 else { Layers[i].UsesTanh = false; }
             }
             OutputLength = Layers[NumLayers - 1].OutputLength;
             return this;
+        }
+        public static void TestTrain (NN Critic, int batchsize, int imgspeed, Form1 activeform)
+        {
+            int formupdateiterator = 0;
+            while (Training)
+            {
+                double mean1 = 0, mean8 = 0;
+                double stddev1 = 0, stddev8 = 0;
+                double score = 0;
+                double perccorrect = 0;
+                List<double[]> list8 = new List<double[]>();
+                List<double[]> list1 = new List<double[]>();
+                for (int i = 0; i < batchsize; i++)
+                {
+                    list1.Add(IO.FindNextNumber(1));
+                    var mean = Maths.CalcMean(list1[i]);
+                    mean1 += mean;
+                    stddev1 += Maths.CalcStdDev(list1[i], mean);
+                    list8.Add(IO.FindNextNumber(8));
+                    mean = Maths.CalcMean(list8[i]);
+                    mean8 += mean;
+                    stddev8 += Maths.CalcStdDev(list8[i], mean);
+                }
+                mean8 /= batchsize; mean1 /= batchsize;
+                stddev1 /= batchsize; stddev8 /= batchsize;
+
+                list1 = Maths.BatchNormalize(list1, mean1, stddev1);
+                list8 = Maths.BatchNormalize(list8, mean8, stddev8);
+
+                Critic.Calculate(list1);
+                foreach (double[] d in Critic.Layers[Critic.NumLayers - 1].ZVals) 
+                {
+                    score += (1 - d[0]) * (1 - d[0]);
+                    score += (-d[1]) * (-d[1]);
+                    perccorrect += d[0] > d[1] ? 1 : 0;
+                }
+                Critic.CalcGradients(list1, null, 0, true);
+
+                Critic.Calculate(list8);
+                foreach (double[] d in Critic.Layers[Critic.NumLayers - 1].ZVals)
+                {
+                    score += (1 - d[1]) * (1 - d[1]);
+                    score += (-d[0]) * (-d[0]);
+                    perccorrect += d[0] > d[1] ? 0 : 1;
+                }
+                score /= (2 * batchsize);
+                perccorrect /= (2 * batchsize);
+
+                score = Math.Sqrt(score);
+                Critic.CalcGradients(list8, null, 1, true);
+
+                Critic.Update(batchsize, true);
+
+                //Report values to the front end
+                if (Clear)
+                {
+                    Critic.Trials = 0; Critic.Error = 0; Critic.PercCorrect = 0; Clear = false;
+                }
+                
+                Critic.Trials++;
+                Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (score * (1d / (Critic.Trials)));
+                Critic.PercCorrect = (Critic.PercCorrect * ((Critic.Trials) / (Critic.Trials + 1d))) + (perccorrect * (1d / (Critic.Trials)));
+                //Update image (if applicable)
+                if (formupdateiterator >= imgspeed)
+                {
+                    //Maths.Rescale(list8[0], mean8, stddev8);
+                    var values = Form1.Rescale(Maths.Convert(list1[0]));
+                    var image = new int[28, 28];
+                    //Convert values to a 2d array
+                    for (int i = 0; i < 28; i++)
+                    {
+                        for (int ii = 0; ii < 28; ii++)
+                        {
+                            image[ii, i] = (int)values[i, ii];
+                        }
+                    }
+                    activeform.Invoke((Action)delegate
+                    {
+                        activeform.image = image;
+                        activeform.CScore = Critic.Error.ToString();
+                        activeform.CPerc = Critic.PercCorrect.ToString();
+                        if (Critic.Error > Form1.Cutoff) { Training = false; }
+                        if (IO.Reset)
+                        {
+                            IO.Reset = false;
+                            activeform.Epoch++;
+                        }
+                    });
+                    formupdateiterator = 0;
+                }
+                formupdateiterator++;
+            }
+            activeform.Invoke((Action)delegate
+            {
+                //Notify of being done training
+                activeform.DoneTraining = true;
+                //Reset errors
+                activeform.CScore = null;
+                activeform.GScore = null;
+            });
         }
         /// <summary>
         /// Trains the GAN
@@ -82,16 +182,15 @@ namespace WGAN1
                 double totalrealmean = 0;
                 double totalrealstddev = 0;
                 //Train critic x times per 1 of generator
-                //The generator's Wassersetin Loss
-                double AvgFakeScore = 0;
                
                 for (int i = 0; i < ctg; i++)
                 {
-                    //The critic's Wasserstein Loss
-                    double CWLoss = 0;
                     //Batch norm stuff
                     double realmean = 0;
                     double realstddev = 0;
+
+                    double AvgFakeScore = 0;
+                    double AvgRealScore = 0;
 
                     //Generate samples
                     var realsamples = new List<double[]>();
@@ -114,12 +213,10 @@ namespace WGAN1
                     realmean /= m; totalrealmean += realmean; 
                     realstddev /= m; totalrealstddev += realstddev;
 
-                    //Batchnorm the real samples
-                    for (int j = 0; j < m; j++)
-                    {
-                        realsamples[j] = Maths.Normalize(realsamples[j], realmean, realstddev);
-                    }
+                    //Batchnorm the samples
+                    realsamples = Maths.BatchNormalize(realsamples, realmean, realstddev);
                     var fakesamples = Generator.GenerateSamples(latentspaces);
+                    //var fakesamples = Maths.BatchNormalize(Generator.GenerateSamples(latentspaces));
 
                     double overallscore = 0;
                     //Critic's scores of each type of sample
@@ -134,44 +231,49 @@ namespace WGAN1
                     Critic.Calculate(realsamples);
                     for (int j = 0; j < m; j++) 
                     { 
-                        rscores.Add(Critic.Values[Critic.NumLayers - 1][j][0]);
-                        CWLoss += rscores[j];
+                        rscores.Add(Critic.Layers[Critic.NumLayers - 1].ZVals[j][0]);
+                        AvgRealScore += rscores[j];
                     }
-                    CWLoss /= m;
-                    //Backprop
-                    Critic.CalcGradients(realsamples, null, CWLoss, true);
+                    AvgRealScore /= m;
+                    
                     for (int j = 0; j < m; j++)
                     {
-                        overallscore += Critic.Values[Critic.NumLayers - 1][j][0] > 0 ? 1 : 0;
+                        overallscore += Critic.Layers[Critic.NumLayers - 1].ZVals[j][0] > 0 ? 1 : 0;
                     }
 
                     //Fakes
                     
                     //Fake image calculations
                     Critic.Calculate(fakesamples);
-                    CWLoss = 0;
                     for (int j = 0; j < m; j++)
                     {
-                        fscores.Add(Critic.Values[Critic.NumLayers - 1][j][0]);
-                        CWLoss += fscores[j];
+                        fscores.Add(Critic.Layers[Critic.NumLayers - 1].ZVals[j][0]);
                         AvgFakeScore += fscores[j];
                     }
-                    CWLoss /= m;
-                    Critic.CalcGradients(fakesamples, null, -CWLoss, true);
+                    AvgFakeScore /= m;
+
+                    //Critic's Wassertsein loss
+                    double CWLoss = AvgRealScore - AvgFakeScore;
+                    //Backprop
+                    Critic.CalcGradients(realsamples, null, 1, true);
+                    Critic.CalcGradients(fakesamples, null, -1, true);
 
                     //Calculate the generator's error
                     double GError = 0;
                     for (int j = 0; j < m; j++)
                     {
-                        overallscore += Critic.Values[Critic.NumLayers - 1][j][0] < 0 ? 1 : 0;
-                        GError += Critic.Values[Critic.NumLayers - 1][j][0];
+                        overallscore += Critic.Layers[Critic.NumLayers - 1].ZVals[j][0] < 0 ? 1 : 0;
+                        GError += Critic.Layers[Critic.NumLayers - 1].ZVals[j][0] > 0 ? 1 : 0;
                     }                  
-
                     //Update
                     Critic.Update(m, gradientnorm);
 
                     //Report values to the front end
-                    if (Clear) { Critic.Trials = 0; Generator.Trials = 0; Clear = false; }
+                    if (Clear) 
+                    { 
+                        Critic.Trials = 0; Critic.Error = 0; Critic.PercCorrect = 0;
+                        Generator.Trials = 0; Generator.Error = 0; Generator.PercCorrect = 0; Clear = false;
+                    }
                     overallscore /= (2 * m);
                     GError /= m;
                     Critic.Trials++;
@@ -180,17 +282,23 @@ namespace WGAN1
                     Generator.Error = (Generator.Error * ((Generator.Trials) / (Generator.Trials + 1d))) + (GError * (1d / (Generator.Trials)));
                 }
                 //Adjust loss for batch size and critic to generator ratio
-                AvgFakeScore /= m * ctg;
                 totalrealmean /= ctg;
                 totalrealstddev /= ctg;
                 //Train generator
                 List<double[]> testlatents = new List<double[]>();
                 for (int i = 0; i < m; i++) { testlatents.Add(Maths.RandomGaussian(r, LatentSize)); }
                 var tests = Generator.GenerateSamples(testlatents);
+                //var tests = Maths.BatchNormalize(Generator.GenerateSamples(testlatents));
                 Critic.Calculate(tests);
-                Critic.CalcGradients(tests, null, -AvgFakeScore, false);
+                //The generator's wasserstein loss
+                double GWLoss = 0;
+                for (int j = 0; j < m; j++)
+                {
+                    GWLoss += Critic.Layers[Critic.NumLayers - 1].ZVals[j][0];
+                }
+                Critic.CalcGradients(tests, null, 1, false);
                 //Backprop through the critic to the generator
-                Generator.CalcGradients(testlatents, Critic.Layers[0], -AvgFakeScore, true);
+                Generator.CalcGradients(tests, Critic.Layers[0], 1, true);
                 //Update
                 Generator.Update(m, gradientnorm);
 
@@ -244,26 +352,14 @@ namespace WGAN1
         }
         public void Calculate(List<double[]> inputs)
         {
-            Values = new List<List<double[]>>();
-            Values.Add(Calculate(Layers[0], inputs, TanhLayers[0], ResidualLayers[0], BatchNormLayers[0], false));
+            Calculate(Layers[0], inputs, TanhLayers[0], ResidualLayers[0], BatchNormLayers[0], false);
             for (int i = 1; i < NumLayers; i++)
             {
-                Values.Add(Calculate(Layers[i], Values[i - 1], TanhLayers[i], ResidualLayers[i], BatchNormLayers[i], i == NumLayers - 1));
-                //if (Layers[i] is SumLayer)
-                //{
-                //    for (int j = 0; j < Values[i].Count; j++)
-                //    {
-                //        (Layers[i] as SumLayer).Calculate(Values[i][j], Values[ResidualIndex][j]);
-                //        Values[i].Add(Layers[i].ZVals);
-                //    }
-                //}
-                //else
-                //{
-                //    Values.Add(Calculate(Layers[i], Values[i - 1], ResidualLayers[i], BatchNormLayers[i], i == NumLayers - 1));
-                //}
+                Calculate(Layers[i], Layers[i - 1].ZVals, TanhLayers[i], ResidualLayers[i], BatchNormLayers[i], i == NumLayers - 1);
             }
+            Residuals = null;
         }
-        public List<double[]> Calculate(iLayer layer, List<double[]> inputs, bool tanh, bool isResidual, bool batchnorm, bool isoutput)
+        public void Calculate(Layer layer, List<double[]> inputs, bool tanh, bool isResidual, bool batchnorm, bool isoutput)
         {
             if (batchnorm)
             {
@@ -291,77 +387,55 @@ namespace WGAN1
             }
 
             //Calculate the next set of values
-            List<double[]> outputs = new List<double[]>();
-            for (int i = 0; i < inputs.Count; i++)
+            if (layer is SumLayer)
             {
-                if (layer is SumLayer) 
+                //Just sum with an all-0 matrix to preserve the input lol
+                if (Residuals is null)
                 {
-                    //Just sum with an all-0 matrix to preserve the input lol
-                    if (Residuals is null) 
-                    { 
-                        Residuals = new List<double[]>(); 
-                        for (int lol = 0; lol < inputs.Count; lol++)
-                        {
-                            Residuals.Add(new double[layer.InputLength]);
-                        }
-                    } 
-                    (layer as SumLayer).Calculate(Residuals[i], inputs[i]);
+                    Residuals = new List<double[]>();
+                    for (int lol = 0; lol < inputs.Count; lol++)
+                    {
+                        Residuals.Add(new double[layer.InputLength]);
+                    }
                 }
-                else { layer.Calculate(inputs[i], isoutput); }
-                outputs.Add(layer.ZVals);
+                    (layer as SumLayer).Calculate(Residuals, inputs);
             }
+            else { layer.Calculate(inputs, isoutput); }
+
             if (isResidual)
             { 
-                Residuals = outputs;
+                Residuals = layer.ZVals;
             }
-            return outputs;
         }
-        public void CalcGradients(List<double[]> inputs, iLayer output, double correct, bool calcgradients)
+        public void CalcGradients(List<double[]> inputs, Layer output, double correct, bool calcgradients)
         {
-            //Reset errors
-            Layers[NumLayers - 1].Errors = new double[Layers[NumLayers - 1].Length];
-            for (int i = 0; i < NumLayers - 1; i++)
-            {
-                Layers[i].Errors = new double[Layers[i + 1].InputLength];
-            }
             //Output layer
-            for (int i = 0; i < Values[NumLayers - 1].Count; i++) 
-            {
-                Layers[NumLayers - 1].Backprop(Values[NumLayers - 2][i], output, Values[NumLayers - 1][i], correct, calcgradients);
-            }
+            Layers[NumLayers - 1].Backprop(Layers[NumLayers - 2].ZVals, output, correct, calcgradients);
             //Middle layers
             for (int i = NumLayers - 2; i >= 1; i--)
             {
-                for (int ii  = 0; ii < Values[i - 1].Count; ii++)
-                {
-                    Layers[i].Backprop(Values[i - 1][ii], Layers[i + 1], null, -99, calcgradients);
-                }
+                Layers[i].Backprop(Layers[i - 1].ZVals, Layers[i + 1], -99, calcgradients);
             }
             //Input layer
-            for (int i = 0; i < inputs.Count; i++)
-            {
-                Layers[0].Backprop(inputs[i], Layers[1], null, -99, calcgradients);
-            }
+            Layers[0].Backprop(inputs, Layers[1], -99, calcgradients);
 
             //Add residual errors
 
             //The process is to find the most recent sum layer, then
             //backprop its errors to the corresponding (aka most recent) residual layer
             int j = NumLayers - 1;
+            Layer most_recent_sumlayer = null;
             do
             {
-                iLayer most_recent_sumlayer = null;
-                if (Layers[j] is SumLayer) { most_recent_sumlayer = Layers[j]; }
                 //Add errors to the layer whose values were taken
                 if (ResidualLayers[j])
                 {
                     List<double[]> input = inputs;
-                    if (j != 0) { input = Values[j - 1]; }
-                    for (int i = 0; i < input.Count; i++)
-                    {
-                        Layers[j].Backprop(input[i], most_recent_sumlayer, null, -99, calcgradients);
-                    }
+                    if (j != 0) { input = Layers[j - 1].ZVals; }
+                    Layers[j].Backprop(input, most_recent_sumlayer, -99, calcgradients);
+                    most_recent_sumlayer = null;
                 }
+                if (Layers[j] is SumLayer) { most_recent_sumlayer = Layers[j]; }
                 j--;
             }
             while (j >= 0);
@@ -378,13 +452,14 @@ namespace WGAN1
             for (int i = 0; i < NumLayers; i++)
             {
                 if (Layers[i] is SumLayer || Layers[i] is PoolingLayer) { continue; }
-                Layers[i].Descend(m, batchnorm);
+                 
+                 Layers[i].Descend(m, batchnorm);
             }
         }
         List<double[]> GenerateSamples(List<double[]> latentspaces)
         {
             Calculate(latentspaces);
-            return Values[NumLayers - 1];
+            return Layers[NumLayers - 1].ZVals;
         }
         List<double[]> GenerateNoisyImages(Random r, int latentsize, int num)
         {

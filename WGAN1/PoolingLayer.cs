@@ -6,15 +6,8 @@ using System.Threading.Tasks;
 
 namespace WGAN1
 {
-    class PoolingLayer : iLayer
+    class PoolingLayer : Layer
     {
-        public double[,] Weights { get; set; }
-        public double[] ZVals { get; set; }
-        public double[] Errors { get; set; }
-        public int OutputLength { get; set; }
-        public int Length { get; set; }
-        public int InputLength { get; set; }
-        public bool UsesTanh { get; set; }
         public int PoolSize { get; set; }
         public bool DownOrUp { get; set; }
         public PoolingLayer(bool downorup, int l, int il)
@@ -29,85 +22,17 @@ namespace WGAN1
             }
             else { Length = (int)Math.Pow(Math.Sqrt(il) * l, 2); }
         }
-        public void Backprop(double[] input, iLayer outputlayer, double[] outputvals, double correct, bool calcgradients)
+
+        public override void Calculate(List<double[]> inputs, bool output)
         {
-            //Calculate errors
-            if (!(outputvals is null))
+            ZVals = new List<double[]>();
+            for (int i = 0; i < inputs.Count; i++)
             {
-                for (int i = 0; i < Length; i++)
-                {
-                    Errors[i] = 2d * (outputvals[i] - correct);
-                }
+                ZVals.Add(Maths.Convert(Pool(Maths.Convert(inputs[i]), output)));
             }
-            else
-            {
-                if (outputlayer is SumLayer)
-                {
-                    //Errors with respect to the output of the convolution
-                    //dl/do
-                    for (int k = 0; k < outputlayer.Length; k++)
-                    {
-                        for (int j = 0; j < outputlayer.InputLength; j++)
-                        {
-                            double zvalderriv = ZVals[j];
-                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
-                            Errors[j] += zvalderriv * outputlayer.Errors[k];
-                        }
-                    }
-                }
-                if (outputlayer is FullyConnectedLayer)
-                {
-                    var FCLOutput = outputlayer as FullyConnectedLayer;
-                    for (int k = 0; k < FCLOutput.Length; k++)
-                    {
-                        for (int j = 0; j < Length; j++)
-                        {
-                            double zvalderriv = outputlayer.ZVals[k];
-                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
-                            Errors[j] += FCLOutput.Weights[k, j] * zvalderriv * FCLOutput.Errors[k];
-                        }
-                    }
-                }
-                if (outputlayer is ConvolutionLayer)
-                {
-                    var CLOutput = outputlayer as ConvolutionLayer;
-                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
-                    else { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
-                }
-            }
-            if (outputlayer is PoolingLayer)
-            {
-                var PLOutput = outputlayer as PoolingLayer;
-                if (PLOutput.DownOrUp)
-                {
-                    int iterator = 0;
-                    Errors = new double[Length];
-                    var wets = Maths.Convert(PLOutput.Weights);
-                    for (int i = 0; i < Length; i++)
-                    {
-                        if (wets[i] == 0) { continue; }
-                        Errors[i] = PLOutput.Errors[iterator];
-                        iterator++;
-                    }
-                    if (outputlayer.UsesTanh) { Errors = Maths.TanhDerriv(Errors); }
-                    //Otherwise they're fine as-is
-                }
-                else
-                {
-                    PLOutput.Calculate(PLOutput.Errors, false);
-                    if (outputlayer.UsesTanh) { Errors = Maths.TanhDerriv(PLOutput.ZVals); }
-                    else { Errors = PLOutput.ZVals; }
-                }
-            }
-            //There are no gradients with respect to a pooling layer
         }
 
-        public void Calculate(double[] input, bool output)
-        {
-            Calculate(Maths.Convert(input), output);
-        }
-
-        public void Calculate(double[,] input, bool useless)
+        public double[,] Pool(double[,] input, bool useless)
         {
             //If pooling down
             if (DownOrUp)
@@ -137,8 +62,8 @@ namespace WGAN1
                     }
                     currentx++;
                 }
-                ZVals = Maths.Convert(output);
                 Weights = mask;
+                return output;
             }
             //If pooling up
             else
@@ -153,18 +78,23 @@ namespace WGAN1
                         output[i, ii] = input[i / PoolSize, ii / PoolSize];
                     }
                 }
-                ZVals = Maths.Convert(output);
+                return output;
             }
         }
 
-        public void Descend(int batchsize, bool batchnorm)
+        public override Layer Init(bool isoutput)
+        {
+            return this;
+        }
+
+        public override void Descend(int batchsize, bool batchnorm)
         {
             throw new NotImplementedException();
         }
 
-        public iLayer Init(bool isoutput)
+        public override void CalcGradients(List<double[]> inputs, Layer outputlayer)
         {
-            return this;
+            throw new NotImplementedException();
         }
     }
 }

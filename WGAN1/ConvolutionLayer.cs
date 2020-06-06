@@ -7,20 +7,12 @@ using System.Threading.Tasks;
 
 namespace WGAN1
 {
-    class ConvolutionLayer : iLayer
+    class ConvolutionLayer : Layer
     {
-        //Kernel
-        public double[,] Weights { get; set; }
         double[,] RMSGrad { get; set; }
         double[,] Gradients { get; set; }
         double[,] Updates { get; set; }
-        public int OutputLength { get; set; }
-        public int Length { get; set; }
         public int KernelSize { get; set; }
-        public int InputLength { get; set; }
-        public bool UsesTanh { get; set; }
-        public double[] Errors { get; set; }
-        public double[] ZVals { get; set; }
         public double AvgUpdate { get; set; }
         public int Stride { get; set; }
         public int PadSize { get; set; }
@@ -35,7 +27,7 @@ namespace WGAN1
             RMSGrad = new double[KernelSize, KernelSize];
             Gradients = new double[KernelSize, KernelSize];
         }
-        public iLayer Init(bool useless)
+        public override Layer Init(bool useless)
         {
             Weights = new double[KernelSize, KernelSize];
             var r = new Random();
@@ -43,12 +35,12 @@ namespace WGAN1
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
-                    Weights[i, ii] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(3d / (InputLength * InputLength));
+                    Weights[i, ii] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(1d / (InputLength));
                 }
             }
             return this;
         }
-        public void Descend(int batchsize, bool batchnorm)
+        public override void Descend(int batchsize, bool batchnorm)
         {
             //Calculate gradients
             Updates = new double[KernelSize, KernelSize];
@@ -57,13 +49,14 @@ namespace WGAN1
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
-                    Updates[i, ii] = NN.LearningRate * Gradients[i, ii] * (-2d / batchsize);
+                    Updates[i, ii] = Gradients[i, ii] * (-2d / batchsize);
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
-                        RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (Updates[i, ii] * Updates[i, ii])) + NN.Infinitesimal;
-                        Updates[i, ii] = (NN.LearningRate / Math.Sqrt(RMSGrad[i, ii])) * Updates[i, ii];
+                        RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (Updates[i, ii] * Updates[i, ii]));
+                        Updates[i, ii] = (Updates[i, ii] / (Math.Sqrt(RMSGrad[i, ii]) + NN.Infinitesimal));
                     }
+                    Updates[i, ii] *= NN.LearningRate;
                 }
             }
             //Gradient normalization
@@ -85,106 +78,29 @@ namespace WGAN1
             }
             Gradients = new double[KernelSize, KernelSize];
         }
-        public void Backprop(double[] input, iLayer outputlayer, double[] outputvals, double correct, bool calcgradients)
+        public override void CalcGradients(List<double[]> inputs, Layer outputlayer)
         {
-            //Calculate error
-            if (!(outputvals is null) && outputlayer is null)
+            for (int i = 0; i < ZVals.Count; i++)
             {
-                //Leveraging the fact that only the critic uses this formula,
-                //and the critic always has an output size of [1]
-                Errors[0] =  2d * (outputvals[0] - correct);
-            }
-            else
-            {
-                if (outputlayer is SumLayer)
-                {
-                    //Errors with respect to the output of the convolution
-                    //dl/do
-                    for (int k = 0; k < outputlayer.Length; k++)
-                    {
-                        for (int j = 0; j < outputlayer.InputLength; j++)
-                        {
-                            double zvalderriv = ZVals[j];
-                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
-                            Errors[j] += zvalderriv * outputlayer.Errors[k];
-                        }
-                    }
-                }
-                if (outputlayer is FullyConnectedLayer)
-                {
-                    //Errors with respect to the output of the convolution
-                    //dl/do
-                    Errors = new double[outputlayer.InputLength];
-                    for (int k = 0; k < outputlayer.Length; k++)
-                    {
-                        for (int j = 0; j < outputlayer.InputLength; j++)
-                        {
-                            double zvalderriv = outputlayer.ZVals[k];
-                            if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(outputlayer.ZVals[k]); }
-                            Errors[j] += outputlayer.Weights[k, j] * zvalderriv * outputlayer.Errors[k];
-                        }
-                    }
-                }
-                if (outputlayer is ConvolutionLayer)
-                {
-
-                    var CLOutput = outputlayer as ConvolutionLayer;
-                    //Errors = Maths.Convert(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)));
-                    if ((outputlayer as ConvolutionLayer).DownOrUp) { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.FullConvolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
-                    else { Errors = Maths.Convert(CLOutput.UnPad(CLOutput.Convolve(CLOutput.Weights, Maths.Convert(CLOutput.Errors)))); }
-                    //Upscale to find errors
-                }
-                if (outputlayer is PoolingLayer)
-                {
-                    var PLOutput = outputlayer as PoolingLayer;
-                    if (PLOutput.DownOrUp)
-                    {
-                        int iterator = 0;
-                        Errors = new double[Length];
-                        var wets = Maths.Convert(PLOutput.Weights);
-                        for (int i = 0; i < Length; i++)
-                        {
-                            if (wets[i] == 0) { continue; }
-                            Errors[i] = PLOutput.Errors[iterator];
-                            iterator++;
-                        }
-                    }
-                    else
-                    {
-                        PLOutput.Calculate(PLOutput.Errors, false);
-                        Errors = PLOutput.ZVals;
-                    }
-                }
-                //Gradients = Convolve(Maths.Convert(Errors), Input);
-            }
-
-            if (calcgradients) 
-            { 
-                double[,] Input = Maths.Convert(input);
-                if (DownOrUp) { Convolve(Maths.Convert(Maths.Scale(-1, Errors)), Pad(Input)); }
-                else { Convolve(Pad(Input), Maths.Convert(Maths.Scale(-1, Errors))); }
+                double[,] Input = Pad(Maths.Convert(inputs[i]));
+                if (DownOrUp) { Gradients = Convolve(Maths.Convert(Errors[i]), Input); }
+                else { Gradients = Convolve(Input, Maths.Convert(Errors[i])); }
             }
         }
         /// <summary>
         /// Calculates the dot product of the kernel and input matrix.
         /// Matrices should be size [x, y] and [y], respectively, where x is the output size and y is the latent space's size
         /// </summary>
-        /// <param name="input">The input matrix</param>
+        /// <param name="inputs">The input matrix</param>
         /// <param name="isoutput">Whether to use hyperbolic tangent on the output</param>
         /// <returns></returns>
-        public void Calculate(double[] input, bool isoutput)
+        public override void Calculate(List<double[]> inputs, bool isoutput)
         {
-            Calculate(Maths.Convert(input), isoutput);
-        }
-        public void Calculate(double[,] input, bool isoutput)
-        {
-            //Padded scaling
-            var output = DownOrUp ? Convolve(Weights, Pad(input)) : FullConvolve(Weights, Pad(input));
-
-            //Old only downscaler
-            //var output = Pad(Convolve(Weights, input));
-
-            ZVals = Maths.Convert(output);
+            ZVals = new List<double[]>();
+            for (int i = 0; i < inputs.Count; i++)
+            {
+                ZVals.Add(Maths.Convert(DownOrUp ? Convolve(Weights, Pad(Maths.Convert(inputs[i]))) : FullConvolve(Weights, Pad(Maths.Convert(inputs[i])))));
+            }
         }
         public double[,] Convolve(double[,] filter, double[,] input)
         {
