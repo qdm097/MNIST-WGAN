@@ -24,7 +24,7 @@ namespace WGAN1
         /// </summary>
         /// <param name="input">Previous layer's values</param>
         /// <param name="output">Whether the layer is the output layer</param>
-        public void Backprop(List<double[]> inputs, Layer outputlayer, double correct, bool calcgradients)
+        public void Backprop(List<double[]> inputs, Layer outputlayer, int correct, bool calcgradients)
         {
             Errors = new List<double[]>();
 
@@ -36,7 +36,7 @@ namespace WGAN1
                     Errors.Add(new double[Length]);
                     for (int i = 0; i < Length; i++)
                     {
-                        Errors[j][i] = 2d * ((i == correct ? 1d : 0d) - ZVals[j][i]);
+                        Errors[j][i] = 2d * ((i == correct ? 1d : -1d) - ZVals[j][i]);
                         //if (UsesTanh) { Errors[i] *= Maths.TanhDerriv(input[i]); }
                     }
                 }
