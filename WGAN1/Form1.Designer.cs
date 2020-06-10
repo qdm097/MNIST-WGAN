@@ -73,6 +73,8 @@
             this.GPercCorrectTxt = new System.Windows.Forms.TextBox();
             this.label13 = new System.Windows.Forms.Label();
             this.CPercCorrectTxt = new System.Windows.Forms.TextBox();
+            this.label14 = new System.Windows.Forms.Label();
+            this.LabelTxt = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.NumPB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -484,11 +486,30 @@
             this.CPercCorrectTxt.Size = new System.Drawing.Size(142, 31);
             this.CPercCorrectTxt.TabIndex = 41;
             // 
+            // label14
+            // 
+            this.label14.AutoSize = true;
+            this.label14.Location = new System.Drawing.Point(722, 677);
+            this.label14.Name = "label14";
+            this.label14.Size = new System.Drawing.Size(65, 25);
+            this.label14.TabIndex = 46;
+            this.label14.Text = "Label";
+            // 
+            // LabelTxt
+            // 
+            this.LabelTxt.Location = new System.Drawing.Point(727, 705);
+            this.LabelTxt.Name = "LabelTxt";
+            this.LabelTxt.ReadOnly = true;
+            this.LabelTxt.Size = new System.Drawing.Size(142, 31);
+            this.LabelTxt.TabIndex = 45;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1743, 760);
+            this.Controls.Add(this.label14);
+            this.Controls.Add(this.LabelTxt);
             this.Controls.Add(this.label12);
             this.Controls.Add(this.GPercCorrectTxt);
             this.Controls.Add(this.label13);
@@ -589,6 +610,8 @@
         private System.Windows.Forms.TextBox GPercCorrectTxt;
         private System.Windows.Forms.Label label13;
         private System.Windows.Forms.TextBox CPercCorrectTxt;
+        private System.Windows.Forms.Label label14;
+        private System.Windows.Forms.TextBox LabelTxt;
     }
 }
 

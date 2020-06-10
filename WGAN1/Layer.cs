@@ -12,13 +12,14 @@ namespace WGAN1
     {
         public double[,] Weights { get; set; }
         public List<double[]> Errors { get; set; }
+        public List<double[]> Values { get; set; }
         public List<double[]> ZVals { get; set; }
         public int OutputLength { get; set; }
         public int Length { get; set; }
         public int InputLength { get; set; }
         public bool UsesTanh { get; set; }
         public abstract Layer Init(bool isoutput);
-        public abstract void Descend(int batchsize, bool batchnorm);
+        public abstract void Descend(bool batchnorm);
         /// <summary>
         /// Descent for other layers
         /// </summary>
@@ -36,13 +37,20 @@ namespace WGAN1
                     Errors.Add(new double[Length]);
                     for (int i = 0; i < Length; i++)
                     {
-                        Errors[j][i] = 2d * ((i == correct ? 1d : -1d) - ZVals[j][i]);
+                        //var output = ZVals[j][i];
+                        //if (UsesTanh) { output = Maths.TanhDerriv(output); }
+                        //"output" maybe ought to be Values[j][i] instead?
+                        Errors[j][i] = 2d * ((i == correct ? 1d : 0d) - Values[j][i]);
                         //if (UsesTanh) { Errors[i] *= Maths.TanhDerriv(input[i]); }
                     }
                 }
             }
             else
             {
+                //Apply tanhderriv, if applicable, to the output's zvals
+                var outputZVals = outputlayer.ZVals;
+                if (outputlayer.UsesTanh) { outputZVals = Maths.TanhDerriv(outputlayer.ZVals); }
+
                 for (int i = 0; i < inputs.Count; i++)
                 {
                     Errors.Add(new double[outputlayer.InputLength]);
@@ -57,9 +65,7 @@ namespace WGAN1
                         {
                             for (int j = 0; j < outputlayer.InputLength; j++)
                             {
-                                double zvalderriv = outputlayer.ZVals[i][j];
-                                if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
-                                Errors[i][j] += zvalderriv * outputlayer.Errors[i][k];
+                                Errors[i][j] += outputZVals[i][j] * outputlayer.Errors[i][k];
                             }
                         }
                     }
@@ -71,11 +77,9 @@ namespace WGAN1
                     {
                         for (int k = 0; k < FCLOutput.Length; k++)
                         {
-                            for (int j = 0; j < Length; j++)
+                            for (int j = 0; j < FCLOutput.InputLength; j++)
                             {
-                                double zvalderriv = outputlayer.ZVals[i][k];
-                                if (outputlayer.UsesTanh) { zvalderriv = Maths.TanhDerriv(zvalderriv); }
-                                Errors[i][j] += FCLOutput.Weights[k, j] * zvalderriv * FCLOutput.Errors[i][k];
+                                Errors[i][j] += FCLOutput.Weights[k, j] * outputZVals[i][k] * FCLOutput.Errors[i][k];
                             }
                         }
                     }
@@ -115,6 +119,11 @@ namespace WGAN1
                         }
                         else
                         {
+
+
+                            //VERIFY THIS (ESPECIALLY WITH RESPECT TO OUTPUTZVALS/TANHDERRIV)
+
+
                             PLOutput.Pool(Maths.Convert(PLOutput.Errors[j]), false);
                             Errors[j] = PLOutput.ZVals[j];
                         }

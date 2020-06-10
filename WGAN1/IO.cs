@@ -28,66 +28,39 @@ namespace WGAN1
 
         public static double[] FindNextNumber(int number)
         {
-            //Find the next number
-            while(ReadNextLabel() != number)
+            using (StreamReader sr = new StreamReader(new FileStream(LabelPath, FileMode.Open) { Position = LabelOffset }))
             {
-                ImageOffset += 784; 
+                while (sr.Read() != number)
+                {
+                    if (sr.EndOfStream)
+                    { 
+                        LabelOffset = 8;
+                        sr.BaseStream.Position = LabelOffset;
+                        ImageOffset = 16;
+                        Reset = true;
+                    }
+                    LabelOffset++;
+                    ImageOffset += 784;
+                }
+                LabelOffset++;
             }
-            //Return the image found at the now found index
-            return ReadNextImage();
-        }
-       
-        //Simple code to read a single number from a file, offset by a byte of metadata
-        static int ReadNextLabel()
-        {
-            //Singleton process
-            if (LabelReaderRunning) { throw new Exception("Already accessing file"); }
-
-            FileStream fs = File.OpenRead(LabelPath);
-            //Reset parameters and decrement NN hyperparameters upon new epoch (currently disabled)
-            if (!(LabelOffset < fs.Length)) { LabelOffset = 8; ImageOffset = 16; Reset = true; }
-
-            fs.Position = LabelOffset;
-            byte[] b = new byte[1];
-            try
+            double[] output;
+            using (FileStream fs = new FileStream(ImagePath, FileMode.Open) { Position = ImageOffset })
             {
-                fs.Read(b, 0, 1);
+                if (fs.Length < fs.Position + 784)
+                {
+                    LabelOffset = 8;
+                    fs.Position = ImageOffset;
+                    ImageOffset = 16;
+                    Reset = true;
+                }
+                byte[] bytes = new byte[Resolution * Resolution];
+                fs.Read(bytes, 0, Resolution * Resolution);
+                var ints = Array.ConvertAll(bytes, Convert.ToInt32);
+                output = Array.ConvertAll(ints, Convert.ToDouble);
+                ImageOffset += 784;
             }
-            catch (Exception ex) { Console.WriteLine("Reader exception: " + ex.ToString()); Console.ReadLine(); }
-            int[] result = Array.ConvertAll(b, Convert.ToInt32);
-            LabelOffset++;
-            fs.Close();
-            foreach (int i in result) { return i; }
-            return -1;
-        }
-        //Read a matrix from a file offset by two bytes of metadata
-        static double[] ReadNextImage()
-        {
-            //Singleton
-            if (ImageReaderRunning) { throw new Exception("Already accessing file"); }
-
-            //Read image
-            FileStream fs = File.OpenRead(ImagePath);
-            //Reset parameters and decrement NN hyperparameters upon new epoch (currently disabled)
-            if (!(ImageOffset < fs.Length)) { ImageOffset = 16; LabelOffset = 8; Reset = true; }
-            fs.Position = ImageOffset;
-            byte[] b = new byte[Resolution * Resolution];
-            try
-            {
-                fs.Read(b, 0, Resolution * Resolution);
-            }
-            catch (Exception ex) { Console.WriteLine("Reader exception: " + ex.ToString()); Console.ReadLine(); }
-            fs.Close();
-            int[] array = Array.ConvertAll(b, Convert.ToInt32);
-            ImageOffset += Resolution * Resolution;
-            //Convert to 2d array
-            double[] result = new double[Resolution * Resolution];
-            //Convert array to doubles and store in result
-            for (int i = 0; i < Resolution * Resolution; i++)
-            {
-                result[i] = array[i];
-            }
-            return result;
+            return output;
         }
         /// <summary>
         /// Returns a NN from a file
@@ -133,19 +106,21 @@ namespace WGAN1
                 nn.BatchNormLayers.Add(text[iterator] == "1"); iterator++;
                 nn.TanhLayers.Add(text[iterator] == "1"); iterator++;
 
-                if (type == "0") { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); }
+                if (type == "0") { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); nn.Layers[i].UsesTanh = nn.TanhLayers[i]; }
                 //No weights exist in a sum layer
-                if (type == "1") { nn.Layers.Add(new SumLayer(LayerCount, InputLayerCount)); continue; }
+                if (type == "1") { nn.Layers.Add(new SumLayer(LayerCount, InputLayerCount)); nn.Layers[i].UsesTanh = nn.TanhLayers[i]; continue; }
                 if (type == "2")
                 {
                     nn.Layers.Add(new ConvolutionLayer(kernelsize, InputLayerCount));
                     var conv = nn.Layers[i] as ConvolutionLayer;
                     nn.Layers[i].Length = LayerCount;
+                    nn.Layers[i].UsesTanh = nn.TanhLayers[i];
                     conv.PadSize = padsize; conv.Stride = stride; conv.DownOrUp = downorup;
                 }
                 if (type == "3")
                 {
                     nn.Layers.Add(new PoolingLayer(downorup, kernelsize, InputLayerCount));
+                    nn.Layers[i].UsesTanh = nn.TanhLayers[i];
                     //No weights exist in a pooling layer
                     continue;
                 }
@@ -200,10 +175,10 @@ namespace WGAN1
                 {
                     for (int jj = 0; jj < nn.Layers[i].Weights.GetLength(1); jj++)
                     {
-                        sw.Write(Math.Round(nn.Layers[i].Weights[j, jj], 4) + ",");
+                        sw.Write(Math.Round(nn.Layers[i].Weights[j, jj], 5) + ",");
                     }
                     if (i != nn.NumLayers - 1 && nn.Layers[i] is FullyConnectedLayer)
-                    { sw.Write(Math.Round((nn.Layers[i] as FullyConnectedLayer).Biases[j], 4) + ","); }
+                    { sw.Write(Math.Round((nn.Layers[i] as FullyConnectedLayer).Biases[j], 5) + ","); }
                 }
             }
             sw.Close();

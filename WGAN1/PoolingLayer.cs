@@ -26,10 +26,12 @@ namespace WGAN1
         public override void Calculate(List<double[]> inputs, bool output)
         {
             ZVals = new List<double[]>();
-            for (int i = 0; i < inputs.Count; i++)
+            for (int i = 0; i < NN.BatchSize; i++)
             {
                 ZVals.Add(Maths.Convert(Pool(Maths.Convert(inputs[i]), output)));
             }
+            if (UsesTanh) { Values = Maths.Tanh(ZVals); }
+            else { Values = ZVals; }
         }
 
         public double[,] Pool(double[,] input, bool useless)
@@ -87,7 +89,7 @@ namespace WGAN1
             return this;
         }
 
-        public override void Descend(int batchsize, bool batchnorm)
+        public override void Descend(bool batchnorm)
         {
             throw new NotImplementedException();
         }

@@ -28,25 +28,31 @@ namespace WGAN1
             }
             return output;
         }
-        public static double[,] Tanh(double[,] input)
-        {
-            var output = new double[input.GetLength(0), input.GetLength(1)];
-            for (int i = 0; i < input.GetLength(0); i++)
-            {
-                for (int ii = 0; ii < input.GetLength(1); ii++)
-                {
-                    output[i, ii] = Tanh(input[i, ii]);
-                }
-            }
-            return output;
-        }
         public static double Tanh(double number)
         {
             return (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
         }
         public static double TanhDerriv(double number)
         {
-            return (1 - number) * (1 + number);
+            return 1 - Math.Pow(Tanh(number), 2);
+        }
+        public static List<double[]> TanhDerriv(List<double[]> input)
+        {
+            List<double[]> output = new List<double[]>();
+            for (int i = 0; i < input.Count; i++)
+            {
+                output.Add(TanhDerriv(input[i]));
+            }
+            return output;
+        }
+        public static List<double[]> Tanh(List<double[]> input)
+        {
+            List<double[]> output = new List<double[]>();
+            for (int i = 0; i < input.Count; i++)
+            {
+                output.Add(Tanh(input[i]));
+            }
+            return output;
         }
         public static double[] Rescale(double[] array, double mean, double stddev)
         {
@@ -113,13 +119,14 @@ namespace WGAN1
         {
             //Prevent errors
             if (stddev == 0) { stddev = .000001; }
+            double[] output = new double[array.Length];
             //Calc zscore
             for (int i = 0; i < array.Length; i++)
             {
-                array[i] = (array[i] - mean) / stddev;
+                output[i] = (array[i] - mean) / stddev;
             }
 
-            return array;
+            return output;
         }
         public static double[] Normalize(double[] input)
         {

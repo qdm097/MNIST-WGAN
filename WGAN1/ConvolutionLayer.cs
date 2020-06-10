@@ -35,12 +35,12 @@ namespace WGAN1
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
-                    Weights[i, ii] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(1d / (InputLength));
+                    Weights[i, ii] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(3d / (InputLength * InputLength));
                 }
             }
             return this;
         }
-        public override void Descend(int batchsize, bool batchnorm)
+        public override void Descend(bool batchnorm)
         {
             //Calculate gradients
             Updates = new double[KernelSize, KernelSize];
@@ -49,12 +49,12 @@ namespace WGAN1
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
-                    Updates[i, ii] = Gradients[i, ii] * (-2d / batchsize);
+                    Updates[i, ii] = Gradients[i, ii] * (-2d / NN.BatchSize);
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
                         RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (Updates[i, ii] * Updates[i, ii]));
-                        Updates[i, ii] = (Updates[i, ii] / (Math.Sqrt(RMSGrad[i, ii]) + NN.Infinitesimal));
+                        Updates[i, ii] = (Updates[i, ii] / (Math.Sqrt(RMSGrad[i, ii])));
                     }
                     Updates[i, ii] *= NN.LearningRate;
                 }
@@ -80,11 +80,25 @@ namespace WGAN1
         }
         public override void CalcGradients(List<double[]> inputs, Layer outputlayer)
         {
-            for (int i = 0; i < ZVals.Count; i++)
+            for (int b = 0; b < NN.BatchSize; b++)
             {
-                double[,] Input = Pad(Maths.Convert(inputs[i]));
-                if (DownOrUp) { Gradients = Convolve(Maths.Convert(Errors[i]), Input); }
-                else { Gradients = Convolve(Input, Maths.Convert(Errors[i])); }
+                //var input = inputs[i];
+                //if (UsesTanh) { input = Maths.TanhDerriv(inputs[i]); }
+
+                double[,] Input = Pad(Maths.Convert(inputs[b]));
+                double[,] stochgradients;
+                if (DownOrUp) { stochgradients = Convolve(Maths.Convert(Errors[b]), Input); }
+                else { stochgradients = Convolve(Input, Maths.Convert(Errors[b])); }
+                //Gradients = stochgradients;
+
+                //Add the stochastic gradients to the batch gradients
+                for (int j = 0; j < Gradients.GetLength(0); j++)
+                {
+                    for (int k = 0; k < Gradients.GetLength(1); k++)
+                    {
+                        Gradients[j, k] += stochgradients[j, k];
+                    }
+                }
             }
         }
         /// <summary>
@@ -97,16 +111,19 @@ namespace WGAN1
         public override void Calculate(List<double[]> inputs, bool isoutput)
         {
             ZVals = new List<double[]>();
-            for (int i = 0; i < inputs.Count; i++)
+            for (int b = 0; b < NN.BatchSize; b++)
             {
-                ZVals.Add(Maths.Convert(DownOrUp ? Convolve(Weights, Pad(Maths.Convert(inputs[i]))) : FullConvolve(Weights, Pad(Maths.Convert(inputs[i])))));
+                ZVals.Add(Maths.Convert(DownOrUp ? Convolve(Weights, Pad(Maths.Convert(inputs[b]))) : FullConvolve(Weights, Pad(Maths.Convert(inputs[b])))));
             }
+            if (UsesTanh) { Values = Maths.Tanh(ZVals); }
+            else { Values = ZVals; }
         }
         public double[,] Convolve(double[,] filter, double[,] input)
         {
             int kernelsize = filter.GetLength(0);
             int length = ((input.GetLength(0) - kernelsize) / Stride) + 1;
             int width = ((input.GetLength(1) - kernelsize) / Stride) + 1;
+
             double[,] output = new double[length, width];
             for (int i = 0; i < length; i += Stride)
             {

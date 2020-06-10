@@ -27,23 +27,25 @@ namespace WGAN1
         {
             ZVals = new List<double[]>();
             if (inputs1.Count != inputs2.Count) { throw new Exception("List sizes do not match"); }
-            for (int j = 0; j < inputs1.Count; j++)
+            for (int b = 0; b < NN.BatchSize; b++)
             {
-                if (inputs1[j].Length != inputs2[j].Length)
+                if (inputs1[b].Length != inputs2[b].Length)
                 {
                     throw new Exception("Array sizes do not match");
                 }
 
-                double[] output = new double[inputs1[j].Length];
-                for (int i = 0; i < inputs1[j].Length; i++)
+                double[] output = new double[inputs1[b].Length];
+                for (int i = 0; i < inputs1[b].Length; i++)
                 {
-                    output[i] = inputs1[j][i] + inputs2[j][i];
+                    output[i] = inputs1[b][i] + inputs2[b][i];
                 }
                 ZVals.Add(output);
             }
+            if (UsesTanh) { Values = Maths.Tanh(ZVals); }
+            else { Values = ZVals; }
         }
 
-        public override void Descend(int batchsize, bool batchnorm)
+        public override void Descend(bool batchnorm)
         {
             throw new NotImplementedException();
         }

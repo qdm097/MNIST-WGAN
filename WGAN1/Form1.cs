@@ -17,7 +17,6 @@ namespace WGAN1
         public List<string> InactiveLayers { get; set; }
         NN Critic;
         NN Generator;
-        int batchsize = 10;
         int ctogratio = 5;
         int imgspeed = 0;
 
@@ -35,6 +34,8 @@ namespace WGAN1
         public string GScore { get { return gs; } set { gs = value; GScoreTxt.Text = value; } }
         string gpc;
         public string GPerc { get { return gpc; } set { gpc = value; GPercCorrectTxt.Text = value; } }
+        string label;
+        public string Label { get { return label; } set { label = value; LabelTxt.Text = value; } }
         int e;
         public int Epoch { get { return e; } set { e = value; EpochTxt.Text = value.ToString(); } }
         int[,] img;
@@ -61,7 +62,7 @@ namespace WGAN1
             ClipTxt.Text = NN.ClipParameter.ToString();
             AlphaTxt.Text = NN.LearningRate.ToString();
             RMSDTxt.Text = NN.RMSDecay.ToString();
-            MTxt.Text = batchsize.ToString();
+            MTxt.Text = NN.BatchSize.ToString();
             CTGTxt.Text = ctogratio.ToString();
             try
             {
@@ -86,8 +87,8 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(Critic, Generator, latentsize, resolution, batchsize, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);   
-                //NN.TestTrain(Critic, batchsize, imgspeed, this);
+                NN.Train(Critic, Generator, latentsize, resolution, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);   
+                //NN.TestTrain(Critic, GradientNormCB.Checked, imgspeed, this);
             });
             thread.IsBackground = true;
             thread.Start();
@@ -259,7 +260,7 @@ namespace WGAN1
         {
             if (!int.TryParse(MTxt.Text, out int bs)) { MessageBox.Show("NAN"); return; }
             if (bs < 0 || bs > 1000) { MessageBox.Show("Batch size must be between 0 and 1000"); return; }
-            batchsize = bs;
+            NN.BatchSize = bs;
         }
 
         private void CTGTxt_TextChanged(object sender, EventArgs e)
@@ -404,63 +405,22 @@ namespace WGAN1
             var list = new List<string>();
             if (cog)
             {
-                list.Add("c,5,0,0,1,0,1");
-                list.Add("c,5,0,0,1,0,1");
-                list.Add("c,5,1,1,1,0,1");
-
-                list.Add("c,3,0,0,1,x,1");
-                list.Add("c,3,0,0,1,x,1");
-                list.Add("c,3,0,1,1,x,1");
-
-                list.Add("s");
-                list.Add("f,150,1,0,1");
-                list.Add("f,100,1,0,1");
+                list.Add("c,4,0,0,1");
+                list.Add("c,3,0,0,1");
+                list.Add("c,2,0,0,1");
+                list.Add("f,100,0,0,1");
                 //NEVER SET TANH OR BATCHNORM TO TRUE
                 //YOU WILL BE PROVIDED WITH AN ERROR OF 0
                 //WHICH CASCADES TO MAKE ALL ERRORS IN ALL LAYERS NAN
-                list.Add("f,2,0,0,0");
+                list.Add("f,10,0,0,1");
             }
             else
             {
-                //Residual
-                list.Add("s,-1,1");
-
-                //Residue layer 1
-
-                //2 padded conv layers + sum layer
-                list.Add("c,7,0,1,1,x,1");
-                list.Add("c,7,0,1,1,x,1");
-                list.Add("s");
-                //Upscale
-                list.Add("pu,2,1,1,1");
-                //ConvT (residual)
-                list.Add("cu,7,1,1,1,0,1");
-
-                //Residue layer 2
-
-                //2 padded conv layers + sum layer
-                list.Add("c,7,0,1,1,x,1");
-                list.Add("c,7,0,1,1,x,1");
-                list.Add("s");
-                //Upscale
-                list.Add("pu,2,1,1,1");
-                //ConvT (residual)
-                list.Add("cu,7,1,1,1,0,1");
-
-                //Residue layer 3
-
-                //2 padded conv layers + sum layer
-                list.Add("c,7,0,1,1,x,1");
-                list.Add("c,7,0,1,1,x,1");
-                list.Add("s");
-                //Upscale
-                list.Add("pu,2,0,1,1");
-                //ConvT
-                list.Add("cu,7,0,1,1,0,1");
-
-                list.Add("c,25,0,1,1,0,1");
-                list.Add("c,24,0,1,1,0,1");
-                list.Add("c,24,0,1,1,0,1");
+                list.Add("cu,2,0,0,1");
+                list.Add("cu,3,0,0,1");
+                list.Add("cu,4,0,0,1");
+                list.Add("f,300,0,0,1");
+                list.Add("f,784,0,0,1");
             }
             return list;
         }
