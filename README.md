@@ -1,3 +1,5 @@
 # MNIST-WGAN
-The project is theoretically functional. However, due to being CPU-bound and only operating on one thread, it is extremely slow.
-Development is currently focused on testing. After this partial conv based padding will be added.
+Functional code has been achieved!
+![A 1](https://github.com/qdm097/MNIST-WGAN/blob/master/WGAN1/GAN1.PNG)
+<br>
+Work is currently focused on adding in Wasserstein loss and partial conv based padding.
