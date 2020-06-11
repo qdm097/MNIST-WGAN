@@ -43,16 +43,16 @@ namespace WGAN1
             }
             else
             {
-                //Apply tanhderriv, if applicable, to the output's zvals
-                var outputZVals = outputlayer.ZVals;
-                if (outputlayer.UsesTanh) { outputZVals = Maths.TanhDerriv(outputlayer.ZVals); }
-
                 for (int i = 0; i < inputs.Count; i++)
                 {
                     Errors.Add(new double[outputlayer.InputLength]);
                 }
                 if (outputlayer is SumLayer)
                 {
+                    //No idea why this works, but it does
+                    //(Backpropagating this layer's zvals to itself as the output layer's zvals)
+                    var ozvals = Values;
+                    if (outputlayer.UsesTanh) { ozvals = Maths.TanhDerriv(Values); }
                     //Errors with respect to the output of the convolution
                     //dl/do
                     for (int i = 0; i < outputlayer.ZVals.Count; i++)
@@ -61,11 +61,14 @@ namespace WGAN1
                         {
                             for (int j = 0; j < outputlayer.InputLength; j++)
                             {
-                                Errors[i][j] += outputZVals[i][j] * outputlayer.Errors[i][k];
+                                Errors[i][j] += ozvals[i][k] * outputlayer.Errors[i][k];
                             }
                         }
                     }
                 }
+                //Apply tanhderriv, if applicable, to the output's zvals
+                var outputZVals = outputlayer.ZVals;
+                if (outputlayer.UsesTanh) { outputZVals = Maths.TanhDerriv(outputlayer.ZVals); }
                 if (outputlayer is FullyConnectedLayer)
                 {
                     var FCLOutput = outputlayer as FullyConnectedLayer;

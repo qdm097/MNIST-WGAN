@@ -429,6 +429,13 @@ namespace WGAN1
             for (int i = NumLayers - 2; i >= 1; i--)
             {
                 Layers[i].Backprop(Layers[i - 1].Values, Layers[i + 1], -99, calcgradients);
+                if (Layers[i] is SumLayer)
+                {
+                    int j = i;
+                    while (!ResidualLayers[j] && j >= -1) { j--; }
+                    if (j == -1) { throw new Exception("Invalid ratio of residual to sum layers"); }
+                    Layers[j].Backprop(Layers[j - 1].Values, Layers[i], -99, calcgradients);
+                }
             }
             //Input layer
             Layers[0].Backprop(inputs, Layers[1], -99, calcgradients);
@@ -437,22 +444,23 @@ namespace WGAN1
 
             //The process is to find the most recent sum layer, then
             //backprop its errors to the corresponding (aka most recent) residual layer
-            int j = NumLayers - 1;
-            Layer most_recent_sumlayer = null;
-            do
-            {
-                //Add errors to the layer whose values were taken
-                if (ResidualLayers[j])
-                {
-                    List<double[]> input = inputs;
-                    if (j != 0) { input = Layers[j - 1].Values; }
-                    Layers[j].Backprop(input, most_recent_sumlayer, -99, calcgradients);
-                    most_recent_sumlayer = null;
-                }
-                if (Layers[j] is SumLayer) { most_recent_sumlayer = Layers[j]; }
-                j--;
-            }
-            while (j >= 0);
+
+            //int j = NumLayers - 1;
+            //Layer most_recent_sumlayer = null;
+            //do
+            //{
+            //    //Add errors to the layer whose values were taken
+            //    if (ResidualLayers[j])
+            //    {
+            //        List<double[]> input = inputs;
+            //        if (j != 0) { input = Layers[j - 1].Values; }
+            //        Layers[j].Backprop(input, most_recent_sumlayer, -99, calcgradients);
+            //        most_recent_sumlayer = null;
+            //    }
+            //    if (Layers[j] is SumLayer) { most_recent_sumlayer = Layers[j]; }
+            //    j--;
+            //}
+            //while (j >= 0);
         }
         /// <summary>
         /// Updates the NN's layer's weights after a full batch of gradient descent
