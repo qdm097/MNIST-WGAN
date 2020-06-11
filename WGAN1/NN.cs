@@ -262,7 +262,7 @@ namespace WGAN1
                     }
                     AvgRealScore /= BatchSize;
                     RealPercCorrect /= BatchSize;
-                    Critic.CalcGradients(realsamples, null, -1, true);
+                    Critic.CalcGradients(realsamples, null, RealPercCorrect, true);
                     //Fakes
 
                     //Fake image calculations
@@ -279,7 +279,7 @@ namespace WGAN1
                     }
                     AvgFakeScore /= BatchSize;
                     FakePercIncorrect /= BatchSize;
-                    Critic.CalcGradients(fakesamples, null, 1, true);
+                    Critic.CalcGradients(fakesamples, null, RealPercCorrect - (1 - FakePercIncorrect), true);
 
                     //Critic's Wassertsein loss
                     double CWLoss = AvgRealScore - AvgFakeScore;
@@ -316,11 +316,11 @@ namespace WGAN1
                 double Score = 0;
                 for (int j = 0; j < BatchSize; j++)
                 {
-                    Score += Critic.Layers[Critic.NumLayers - 1].Values[j][0];
+                    Score += Critic.Layers[Critic.NumLayers - 1].Values[j][0] > 0 ? 1 : 0;
                 }
-                Critic.CalcGradients(tests, null, -1, false);
+                Critic.CalcGradients(tests, null, Score, false);
                 //Backprop through the critic to the generator
-                Generator.CalcGradients(testlatents, Critic.Layers[0], -1, true);
+                Generator.CalcGradients(testlatents, Critic.Layers[0], Score, true);
                 //Update
                 Generator.Update(gradientnorm);
 
