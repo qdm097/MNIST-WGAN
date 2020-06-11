@@ -128,6 +128,15 @@ namespace WGAN1
 
             return output;
         }
+        public static List<double[]> Normalize(List<double[]> inputs)
+        {
+            List<double[]> outputs = new List<double[]>();
+            foreach (double[] d in inputs)
+            {
+                outputs.Add(Normalize(d));
+            }
+            return outputs;
+        }
         public static double[] Normalize(double[] input)
         {
             double mean = 0;

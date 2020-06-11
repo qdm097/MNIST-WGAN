@@ -20,7 +20,7 @@ namespace WGAN1
         List<double[]> Residuals { get; set; }
         public static double LearningRate = 0.000146;
         public static double RMSDecay = .9;
-        public static bool UseRMSProp = true;
+        
         //public static double Infinitesimal = 1E-20;
         public static bool UseClipping = false;
         public static double ClipParameter = 10;
@@ -30,6 +30,8 @@ namespace WGAN1
         public static bool Training = false;
         public static bool Clear = false;
         public static bool Save = true;
+        public static bool NormErrors = false;
+        public static bool UseRMSProp = true;
         public int OutputLength { get; set; }
         int Trials = 0;
         public double Error = 0;
@@ -207,8 +209,8 @@ namespace WGAN1
                     double realmean = 0;
                     double realstddev = 0;
 
-                    double AvgFakeScore = 0;
                     double AvgRealScore = 0;
+                    double AvgFakeScore = 0;
 
                     //Generate samples
                     var realsamples = new List<double[]>();
@@ -247,31 +249,37 @@ namespace WGAN1
 
                     //Real image calculations
                     double GError = 0;
+                    double RealPercCorrect = 0;
                     Critic.Calculate(realsamples);
                     for (int j = 0; j < BatchSize; j++) 
                     { 
-                        rscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[j][1]);
-                        overallscore += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][1], 2);
-                        overallscore += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
-                        GError += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
+                        rscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[j][0]);
                         AvgRealScore += rscores[j];
+
+                        overallscore += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
+                        GError += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
+                        RealPercCorrect += Critic.Layers[Critic.NumLayers - 1].Values[j][0] > 0 ? 1d : 0d;
                     }
                     AvgRealScore /= BatchSize;
-                    Critic.CalcGradients(realsamples, null, 1, true);
+                    RealPercCorrect /= BatchSize;
+                    Critic.CalcGradients(realsamples, null, -1, true);
                     //Fakes
 
                     //Fake image calculations
+                    double FakePercIncorrect = 0;
                     Critic.Calculate(fakesamples);
                     for (int j = 0; j < BatchSize; j++)
                     {
                         fscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[j][0]);
-                        overallscore += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
-                        overallscore += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][1], 2);
-                        GError += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
                         AvgFakeScore += fscores[j];
+
+                        overallscore += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
+                        GError += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
+                        FakePercIncorrect += Critic.Layers[Critic.NumLayers - 1].Values[j][0] > 0 ? 1d : 0d;
                     }
                     AvgFakeScore /= BatchSize;
-                    Critic.CalcGradients(fakesamples, null, 0, true);
+                    FakePercIncorrect /= BatchSize;
+                    Critic.CalcGradients(fakesamples, null, 1, true);
 
                     //Critic's Wassertsein loss
                     double CWLoss = AvgRealScore - AvgFakeScore;
@@ -281,15 +289,19 @@ namespace WGAN1
                     //Report values to the front end
                     if (Clear) 
                     { 
-                        Critic.Trials = 0; Critic.Error = 0; Critic.PercCorrect = 0;
-                        Generator.Trials = 0; Generator.Error = 0; Generator.PercCorrect = 0; Clear = false;
+                        Critic.Trials = 0;
+                        Generator.Trials = 0;
+                        Clear = false;
                     }
                     overallscore = Math.Sqrt(overallscore / (2 * BatchSize));
                     GError = Math.Sqrt(GError / BatchSize);
+                    
+                    Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (overallscore * (1d / (Critic.Trials + 1d)));
+                    Critic.PercCorrect = (Critic.PercCorrect * ((Critic.Trials) / (Critic.Trials + 1d))) + (RealPercCorrect * (1d / (Critic.Trials + 1d)));
+                    Generator.Error = (Generator.Error * ((Generator.Trials) / (Generator.Trials + 1d))) + (GError * (1d / (Generator.Trials + 1)));
+                    Generator.PercCorrect = (Generator.PercCorrect * ((Generator.Trials) / (Generator.Trials + 1d))) + (FakePercIncorrect * (1d / (Generator.Trials + 1d)));
                     Critic.Trials++;
                     Generator.Trials++;
-                    Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (overallscore * (1d / (Critic.Trials)));
-                    Generator.Error = (Generator.Error * ((Generator.Trials) / (Generator.Trials + 1d))) + (GError * (1d / (Generator.Trials)));
                 }
                 //Adjust loss for batch size and critic to generator ratio
                 totalrealmean /= ctg;
@@ -301,14 +313,14 @@ namespace WGAN1
                 //var tests = Maths.BatchNormalize(Generator.GenerateSamples(testlatents));
                 Critic.Calculate(tests);
                 //The generator's wasserstein loss
-                double GWLoss = 0;
+                double Score = 0;
                 for (int j = 0; j < BatchSize; j++)
                 {
-                    GWLoss += Critic.Layers[Critic.NumLayers - 1].Values[j][0];
+                    Score += Critic.Layers[Critic.NumLayers - 1].Values[j][0];
                 }
-                Critic.CalcGradients(tests, null, 1, false);
+                Critic.CalcGradients(tests, null, -1, false);
                 //Backprop through the critic to the generator
-                Generator.CalcGradients(testlatents, Critic.Layers[0], 1, true);
+                Generator.CalcGradients(testlatents, Critic.Layers[0], -1, true);
                 //Update
                 Generator.Update(gradientnorm);
 
@@ -331,7 +343,9 @@ namespace WGAN1
                     {
                         activeform.image = image; 
                         activeform.CScore = Critic.Error.ToString();
+                        activeform.CPerc = Critic.PercCorrect.ToString();
                         activeform.GScore = Generator.Error.ToString();
+                        activeform.GPerc = Generator.PercCorrect.ToString();
                         if (Critic.Error > Form1.Cutoff) { Training = false; }
                         if (IO.Reset)
                         {
@@ -407,7 +421,7 @@ namespace WGAN1
                 Residuals = layer.Values;
             }
         }
-        public void CalcGradients(List<double[]> inputs, Layer output, int correct, bool calcgradients)
+        public void CalcGradients(List<double[]> inputs, Layer output, double correct, bool calcgradients)
         {
             //Output layer
             Layers[NumLayers - 1].Backprop(Layers[NumLayers - 2].Values, output, correct, calcgradients);

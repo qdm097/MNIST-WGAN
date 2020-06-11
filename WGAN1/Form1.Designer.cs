@@ -75,6 +75,7 @@
             this.CPercCorrectTxt = new System.Windows.Forms.TextBox();
             this.label14 = new System.Windows.Forms.Label();
             this.LabelTxt = new System.Windows.Forms.TextBox();
+            this.NormErrorsCB = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.NumPB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -156,7 +157,7 @@
             // 
             // TrainBtn
             // 
-            this.TrainBtn.Location = new System.Drawing.Point(109, 389);
+            this.TrainBtn.Location = new System.Drawing.Point(101, 435);
             this.TrainBtn.Name = "TrainBtn";
             this.TrainBtn.Size = new System.Drawing.Size(142, 45);
             this.TrainBtn.TabIndex = 9;
@@ -184,7 +185,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(112, 449);
+            this.label6.Location = new System.Drawing.Point(104, 495);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(128, 25);
             this.label6.TabIndex = 13;
@@ -192,7 +193,7 @@
             // 
             // CScoreTxt
             // 
-            this.CScoreTxt.Location = new System.Drawing.Point(117, 477);
+            this.CScoreTxt.Location = new System.Drawing.Point(109, 523);
             this.CScoreTxt.Name = "CScoreTxt";
             this.CScoreTxt.ReadOnly = true;
             this.CScoreTxt.Size = new System.Drawing.Size(142, 31);
@@ -200,7 +201,7 @@
             // 
             // ClearBtn
             // 
-            this.ClearBtn.Location = new System.Drawing.Point(257, 389);
+            this.ClearBtn.Location = new System.Drawing.Point(249, 435);
             this.ClearBtn.Name = "ClearBtn";
             this.ClearBtn.Size = new System.Drawing.Size(142, 45);
             this.ClearBtn.TabIndex = 14;
@@ -328,7 +329,7 @@
             // label8
             // 
             this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(261, 449);
+            this.label8.Location = new System.Drawing.Point(253, 495);
             this.label8.Name = "label8";
             this.label8.Size = new System.Drawing.Size(175, 25);
             this.label8.TabIndex = 28;
@@ -336,7 +337,7 @@
             // 
             // GScoreTxt
             // 
-            this.GScoreTxt.Location = new System.Drawing.Point(266, 477);
+            this.GScoreTxt.Location = new System.Drawing.Point(258, 523);
             this.GScoreTxt.Name = "GScoreTxt";
             this.GScoreTxt.ReadOnly = true;
             this.GScoreTxt.Size = new System.Drawing.Size(142, 31);
@@ -365,7 +366,7 @@
             // label9
             // 
             this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(195, 597);
+            this.label9.Location = new System.Drawing.Point(187, 643);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(150, 25);
             this.label9.TabIndex = 32;
@@ -373,7 +374,7 @@
             // 
             // EpochTxt
             // 
-            this.EpochTxt.Location = new System.Drawing.Point(200, 625);
+            this.EpochTxt.Location = new System.Drawing.Point(192, 671);
             this.EpochTxt.Name = "EpochTxt";
             this.EpochTxt.ReadOnly = true;
             this.EpochTxt.Size = new System.Drawing.Size(142, 31);
@@ -455,7 +456,7 @@
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(261, 514);
+            this.label12.Location = new System.Drawing.Point(253, 560);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(203, 25);
             this.label12.TabIndex = 44;
@@ -463,7 +464,7 @@
             // 
             // GPercCorrectTxt
             // 
-            this.GPercCorrectTxt.Location = new System.Drawing.Point(266, 542);
+            this.GPercCorrectTxt.Location = new System.Drawing.Point(258, 588);
             this.GPercCorrectTxt.Name = "GPercCorrectTxt";
             this.GPercCorrectTxt.ReadOnly = true;
             this.GPercCorrectTxt.Size = new System.Drawing.Size(142, 31);
@@ -472,7 +473,7 @@
             // label13
             // 
             this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(112, 514);
+            this.label13.Location = new System.Drawing.Point(104, 560);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(156, 25);
             this.label13.TabIndex = 42;
@@ -480,7 +481,7 @@
             // 
             // CPercCorrectTxt
             // 
-            this.CPercCorrectTxt.Location = new System.Drawing.Point(117, 542);
+            this.CPercCorrectTxt.Location = new System.Drawing.Point(109, 588);
             this.CPercCorrectTxt.Name = "CPercCorrectTxt";
             this.CPercCorrectTxt.ReadOnly = true;
             this.CPercCorrectTxt.Size = new System.Drawing.Size(142, 31);
@@ -503,11 +504,23 @@
             this.LabelTxt.Size = new System.Drawing.Size(142, 31);
             this.LabelTxt.TabIndex = 45;
             // 
+            // NormErrorsBtn
+            // 
+            this.NormErrorsCB.AutoSize = true;
+            this.NormErrorsCB.Location = new System.Drawing.Point(145, 377);
+            this.NormErrorsCB.Name = "NormErrorsBtn";
+            this.NormErrorsCB.Size = new System.Drawing.Size(204, 29);
+            this.NormErrorsCB.TabIndex = 47;
+            this.NormErrorsCB.Text = "Normalize Errors";
+            this.NormErrorsCB.UseVisualStyleBackColor = true;
+            this.NormErrorsCB.CheckedChanged += new System.EventHandler(this.NormErrorsCB_CheckedChanged);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1743, 760);
+            this.Controls.Add(this.NormErrorsCB);
             this.Controls.Add(this.label14);
             this.Controls.Add(this.LabelTxt);
             this.Controls.Add(this.label12);
@@ -612,6 +625,7 @@
         private System.Windows.Forms.TextBox CPercCorrectTxt;
         private System.Windows.Forms.Label label14;
         private System.Windows.Forms.TextBox LabelTxt;
+        private System.Windows.Forms.CheckBox NormErrorsCB;
     }
 }
 

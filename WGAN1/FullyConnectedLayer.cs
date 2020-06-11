@@ -128,22 +128,22 @@ namespace WGAN1
         /// <param name="isoutput">Whether the layer is the output layer</param>
         public override void CalcGradients(List<double[]> inputs, Layer outputlayer)
         {
-            for (int j = 0; j < ZVals.Count; j++)
+            for (int b = 0; b < NN.BatchSize; b++)
             {
                 //Calculate gradients
                 for (int i = 0; i < Length; i++)
                 {
-                    double zval = ZVals[j][i];
-                    if (UsesTanh) { zval = Maths.TanhDerriv(ZVals[j][i]); }
+                    double zval = ZVals[b][i];
+                    if (UsesTanh) { zval = Maths.TanhDerriv(ZVals[b][i]); }
 
                     for (int ii = 0; ii < InputLength; ii++)
                     {
                         //Weight gradients
-                        WeightGradient[i, ii] += inputs[j][ii] * zval * Errors[j][i];
+                        WeightGradient[i, ii] += inputs[b][ii] * zval * Errors[b][i];
                     }
                     if (outputlayer is null) { continue; }
                     //Bias gradients
-                    BiasGradient[i] += zval * Errors[j][i];
+                    BiasGradient[i] += zval * Errors[b][i];
                 }
             }
         }

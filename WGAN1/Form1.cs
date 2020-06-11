@@ -63,6 +63,7 @@ namespace WGAN1
             AlphaTxt.Text = NN.LearningRate.ToString();
             RMSDTxt.Text = NN.RMSDecay.ToString();
             MTxt.Text = NN.BatchSize.ToString();
+            NormErrorsCB.Checked = false;
             CTGTxt.Text = ctogratio.ToString();
             try
             {
@@ -412,7 +413,7 @@ namespace WGAN1
                 //NEVER SET TANH OR BATCHNORM TO TRUE
                 //YOU WILL BE PROVIDED WITH AN ERROR OF 0
                 //WHICH CASCADES TO MAKE ALL ERRORS IN ALL LAYERS NAN
-                list.Add("f,10,0,0,1");
+                list.Add("f,1,0,0,1");
             }
             else
             {
@@ -714,6 +715,11 @@ namespace WGAN1
                 output.Add(s.Split(','));
             }
             return output;
+        }
+
+        private void NormErrorsCB_CheckedChanged(object sender, EventArgs e)
+        {
+            NN.NormErrors = true;
         }
     }
 }
