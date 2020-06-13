@@ -41,7 +41,9 @@ namespace WGAN1
                 }
                 ZVals.Add(output);
             }
-            if (UsesTanh) { Values = Maths.Tanh(ZVals); }
+            if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
+            if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
             else { Values = ZVals; }
         }
 

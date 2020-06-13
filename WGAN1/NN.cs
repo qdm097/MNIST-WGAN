@@ -14,7 +14,7 @@ namespace WGAN1
     {
         public int NumLayers { get; set; }
         public List<Layer> Layers { get; set; }
-        public List<bool> TanhLayers { get; set; }
+        public List<int> Activations { get; set; }
         public List<bool> ResidualLayers { get; set; }
         public List<bool> BatchNormLayers { get; set; }
         List<double[]> Residuals { get; set; }
@@ -30,8 +30,10 @@ namespace WGAN1
         public static bool Training = false;
         public static bool Clear = false;
         public static bool Save = true;
+        public static bool NormOutputs = false;
         public static bool NormErrors = false;
         public static bool UseRMSProp = true;
+        public static double Infinitesimal = 1E-30;
         public int OutputLength { get; set; }
         int Trials = 0;
         public double Error = 0;
@@ -42,18 +44,17 @@ namespace WGAN1
         /// </summary>
         /// <param name="l">Number of layers in the network</param>
         /// <param name="wcs">Number of weights/biases in the network</param>
-        public NN Init(List<Layer> layers, List<bool> Tanhs, List<bool> residuals, List<bool> batchnorms)
+        public NN Init(List<Layer> layers, List<int> activations, List<bool> residuals, List<bool> batchnorms)
         {
             Layers = layers;
             NumLayers = Layers.Count;
-            TanhLayers = Tanhs;
+            Activations = activations;
             ResidualLayers = residuals;
             BatchNormLayers = batchnorms;
             for (int i = 0; i < NumLayers; i++)
             {
                 Layers[i].Init(i == NumLayers - 1);
-                if (TanhLayers[i]) { Layers[i].UsesTanh = true; }
-                else { Layers[i].UsesTanh = false; }
+                Layers[i].ActivationFunction = Activations[i];
             }
             OutputLength = Layers[NumLayers - 1].OutputLength;
             return this;
@@ -235,7 +236,7 @@ namespace WGAN1
 
                     //Batchnorm the samples
                     realsamples = Maths.BatchNormalize(realsamples, realmean, realstddev);
-                    var fakesamples = Generator.GenerateSamples(latentspaces);
+                    var fakesamples = Maths.BatchNormalize(Generator.GenerateSamples(latentspaces), realmean, realstddev);
                     //var fakesamples = Maths.BatchNormalize(Generator.GenerateSamples(latentspaces));
 
                     double overallscore = 0;
@@ -374,32 +375,15 @@ namespace WGAN1
         }
         public void Calculate(List<double[]> inputs)
         {
-            Calculate(Layers[0], inputs, ResidualLayers[0], BatchNormLayers[0], false);
+            Calculate(Layers[0], inputs, ResidualLayers[0], false);
             for (int i = 1; i < NumLayers; i++)
             {
-                Calculate(Layers[i], Layers[i - 1].Values, ResidualLayers[i], BatchNormLayers[i], i == NumLayers - 1);
+                Calculate(Layers[i], Layers[i - 1].Values, ResidualLayers[i], i == NumLayers - 1);
             }
             Residuals = null;
         }
-        public void Calculate(Layer layer, List<double[]> inputs, bool isResidual, bool batchnorm, bool isoutput)
+        public void Calculate(Layer layer, List<double[]> inputs, bool isResidual, bool isoutput)
         {
-            if (batchnorm)
-            {
-                //Calculate mean and stddev of the inputs
-                double mean = 0, stddev = 0;
-                foreach (double[] d in inputs)
-                {
-                    double inputmean = Maths.CalcMean(d);
-                    mean += inputmean;
-                    stddev += Maths.CalcStdDev(d, inputmean);
-                }
-                mean /= inputs.Count; stddev /= inputs.Count;
-                for (int i = 0; i < inputs.Count; i++)
-                {
-                    inputs[i] = Maths.Normalize(inputs[i], mean, stddev);
-                }
-            }
-
             //Calculate the next set of values
             if (layer is SumLayer)
             {
@@ -439,28 +423,6 @@ namespace WGAN1
             }
             //Input layer
             Layers[0].Backprop(inputs, Layers[1], -99, calcgradients);
-
-            //Add residual errors
-
-            //The process is to find the most recent sum layer, then
-            //backprop its errors to the corresponding (aka most recent) residual layer
-
-            //int j = NumLayers - 1;
-            //Layer most_recent_sumlayer = null;
-            //do
-            //{
-            //    //Add errors to the layer whose values were taken
-            //    if (ResidualLayers[j])
-            //    {
-            //        List<double[]> input = inputs;
-            //        if (j != 0) { input = Layers[j - 1].Values; }
-            //        Layers[j].Backprop(input, most_recent_sumlayer, -99, calcgradients);
-            //        most_recent_sumlayer = null;
-            //    }
-            //    if (Layers[j] is SumLayer) { most_recent_sumlayer = Layers[j]; }
-            //    j--;
-            //}
-            //while (j >= 0);
         }
         /// <summary>
         /// Updates the NN's layer's weights after a full batch of gradient descent

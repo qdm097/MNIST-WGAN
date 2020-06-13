@@ -10,6 +10,50 @@ namespace WGAN1
 {
     class Maths
     {
+        public static double ReLu(double number)
+        {
+            return (number > 0 ? number : 0);
+        }
+        public static double[] ReLu(double[] input)
+        {
+            var output = new double[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                output[i] = ReLu(input[i]);
+            }
+            return output;
+        }
+        public static List<double[]> ReLu(List<double[]> input)
+        {
+            List<double[]> output = new List<double[]>();
+            for (int i = 0; i < input.Count; i++)
+            {
+                output.Add(ReLu(input[i]));
+            }
+            return output;
+        }
+        public static double ReLuDerriv(double number)
+        {
+            return (number >= 0 ? 1 : 0);
+        }
+        public static double[] ReLuDerriv(double[] input)
+        {
+            var output = new double[input.Length];
+            for (int i = 0; i < input.Length; i++)
+            {
+                output[i] = ReLuDerriv(input[i]);
+            }
+            return output;
+        }
+        public static List<double[]> ReLuDerriv(List<double[]> input)
+        {
+            List<double[]> output = new List<double[]>();
+            for (int i = 0; i < input.Count; i++)
+            {
+                output.Add(ReLuDerriv(input[i]));
+            }
+            return output;
+        }
         public static double[] Tanh(double[] input)
         {
             var output = new double[input.Length];
@@ -30,7 +74,9 @@ namespace WGAN1
         }
         public static double Tanh(double number)
         {
-            return (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
+            double x = (Math.Pow(Math.E, 2 * number) - 1) / (Math.Pow(Math.E, 2 * number) + 1);
+            if (x == 0  || x is double.NaN || double.IsInfinity(x)) { return number; }
+            else { return x; }
         }
         public static double TanhDerriv(double number)
         {

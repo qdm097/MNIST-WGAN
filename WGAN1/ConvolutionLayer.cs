@@ -49,12 +49,12 @@ namespace WGAN1
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
-                    Updates[i, ii] = Gradients[i, ii] * (-2d / NN.BatchSize);
+                    Updates[i, ii] = Gradients[i, ii] * (2d / NN.BatchSize);
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
                         RMSGrad[i, ii] = (RMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (Updates[i, ii] * Updates[i, ii]));
-                        Updates[i, ii] = (Updates[i, ii] / (Math.Sqrt(RMSGrad[i, ii])));
+                        Updates[i, ii] = (Updates[i, ii] / (Math.Sqrt(RMSGrad[i, ii])/* + NN.Infinitesimal*/));
                     }
                     Updates[i, ii] *= NN.LearningRate;
                 }
@@ -115,8 +115,10 @@ namespace WGAN1
             {
                 ZVals.Add(Maths.Convert(DownOrUp ? Convolve(Weights, Pad(Maths.Convert(inputs[b]))) : FullConvolve(Weights, Pad(Maths.Convert(inputs[b])))));
             }
-            if (UsesTanh) { Values = Maths.Tanh(ZVals); }
-            else { Values = ZVals; }
+            if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
+            if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
+            Values = ZVals; 
         }
         public double[,] Convolve(double[,] filter, double[,] input)
         {

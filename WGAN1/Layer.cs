@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,7 +18,7 @@ namespace WGAN1
         public int OutputLength { get; set; }
         public int Length { get; set; }
         public int InputLength { get; set; }
-        public bool UsesTanh { get; set; }
+        public int ActivationFunction { get; set; }
         public abstract Layer Init(bool isoutput);
         public abstract void Descend(bool batchnorm);
         /// <summary>
@@ -37,6 +38,7 @@ namespace WGAN1
                     Errors.Add(new double[Length]);
                     for (int i = 0; i < Length; i++)
                     {
+                        //(i == loss ? 1d : 0d)
                         Errors[j][i] = 2d * (Values[j][i] - loss);
                     }
                 }
@@ -49,10 +51,6 @@ namespace WGAN1
                 }
                 if (outputlayer is SumLayer)
                 {
-                    //No idea why this works, but it does
-                    //(Backpropagating this layer's zvals to itself as the output layer's zvals)
-                    var ozvals = Values;
-                    if (outputlayer.UsesTanh) { ozvals = Maths.TanhDerriv(Values); }
                     //Errors with respect to the output of the convolution
                     //dl/do
                     for (int i = 0; i < outputlayer.ZVals.Count; i++)
@@ -61,14 +59,17 @@ namespace WGAN1
                         {
                             for (int j = 0; j < outputlayer.InputLength; j++)
                             {
-                                Errors[i][j] += ozvals[i][k] * outputlayer.Errors[i][k];
+                                Errors[i][j] += outputlayer.Errors[i][k];
                             }
                         }
                     }
                 }
+
                 //Apply tanhderriv, if applicable, to the output's zvals
                 var outputZVals = outputlayer.ZVals;
-                if (outputlayer.UsesTanh) { outputZVals = Maths.TanhDerriv(outputlayer.ZVals); }
+                if (outputlayer.ActivationFunction == 0) { outputZVals = Maths.TanhDerriv(outputlayer.ZVals); }
+                if (outputlayer.ActivationFunction == 1) { outputZVals = Maths.ReLuDerriv(outputlayer.ZVals); }
+
                 if (outputlayer is FullyConnectedLayer)
                 {
                     var FCLOutput = outputlayer as FullyConnectedLayer;
@@ -103,7 +104,7 @@ namespace WGAN1
                 if (outputlayer is PoolingLayer)
                 {
                     var PLOutput = outputlayer as PoolingLayer;
-                    for (int j = 0; j < outputlayer.ZVals.Count; j++)
+                    for (int b = 0; b < NN.BatchSize; b++)
                     {
                         if (PLOutput.DownOrUp)
                         {
@@ -112,19 +113,25 @@ namespace WGAN1
                             for (int i = 0; i < Length; i++)
                             {
                                 if (wets[i] == 0) { continue; }
-                                Errors[j][i] = PLOutput.Errors[j][iterator];
+                                Errors[b][i] = PLOutput.Errors[b][iterator];
                                 iterator++;
                             }
                         }
                         else
                         {
-
-
-                            //VERIFY THIS (ESPECIALLY WITH RESPECT TO OUTPUTZVALS/TANHDERRIV)
-
-
-                            PLOutput.Pool(Maths.Convert(PLOutput.Errors[j]), false);
-                            Errors[j] = PLOutput.ZVals[j];
+                            //Sum the errors
+                            double[,] outputerrors = Maths.Convert(PLOutput.Errors[b]);
+                            int oel = outputerrors.GetLength(0);
+                            int oew = outputerrors.GetLength(1);
+                            double[,] errors = new double[oel / PLOutput.PoolSize, oew / PLOutput.PoolSize];
+                            for (int i = 0; i < oel; i++)
+                            {
+                                for (int ii = 0; ii < oew; ii++)
+                                {
+                                    errors[i / PLOutput.PoolSize, ii / PLOutput.PoolSize] += outputerrors[i, ii];
+                                }
+                            }
+                            Errors[b] = Maths.Convert(errors);
                         }
                     }
                 }

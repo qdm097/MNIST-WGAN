@@ -73,7 +73,7 @@ namespace WGAN1
             nn.Layers = new List<Layer>();
             nn.ResidualLayers = new List<bool>();
             nn.BatchNormLayers = new List<bool>();
-            nn.TanhLayers = new List<bool>();
+            nn.Activations = new List<int>();
             string[] text;
             using (StreamReader sr = File.OpenText(COG ? CWBPath : GWBPath))
             {
@@ -104,23 +104,23 @@ namespace WGAN1
                 int InputLayerCount = int.Parse(text[iterator]); iterator++;
                 nn.ResidualLayers.Add(text[iterator] == "1"); iterator++;
                 nn.BatchNormLayers.Add(text[iterator] == "1"); iterator++;
-                nn.TanhLayers.Add(text[iterator] == "1"); iterator++;
+                nn.Activations.Add(int.Parse(text[iterator])); iterator++;
 
-                if (type == "0") { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); nn.Layers[i].UsesTanh = nn.TanhLayers[i]; }
+                if (type == "0") { nn.Layers.Add(new FullyConnectedLayer(LayerCount, InputLayerCount)); nn.Layers[i].ActivationFunction = nn.Activations[i]; }
                 //No weights exist in a sum layer
-                if (type == "1") { nn.Layers.Add(new SumLayer(LayerCount, InputLayerCount)); nn.Layers[i].UsesTanh = nn.TanhLayers[i]; continue; }
+                if (type == "1") { nn.Layers.Add(new SumLayer(LayerCount, InputLayerCount)); nn.Layers[i].ActivationFunction = nn.Activations[i]; continue; }
                 if (type == "2")
                 {
                     nn.Layers.Add(new ConvolutionLayer(kernelsize, InputLayerCount));
                     var conv = nn.Layers[i] as ConvolutionLayer;
                     nn.Layers[i].Length = LayerCount;
-                    nn.Layers[i].UsesTanh = nn.TanhLayers[i];
+                    nn.Layers[i].ActivationFunction = nn.Activations[i];
                     conv.PadSize = padsize; conv.Stride = stride; conv.DownOrUp = downorup;
                 }
                 if (type == "3")
                 {
                     nn.Layers.Add(new PoolingLayer(downorup, kernelsize, InputLayerCount));
-                    nn.Layers[i].UsesTanh = nn.TanhLayers[i];
+                    nn.Layers[i].ActivationFunction = nn.Activations[i];
                     //No weights exist in a pooling layer
                     continue;
                 }
@@ -168,7 +168,7 @@ namespace WGAN1
                 }
                 sw.Write(nn.Layers[i].Length + "," + nn.Layers[i].InputLength + ","
                     + (nn.ResidualLayers[i] ? "1," : "0,") + (nn.BatchNormLayers[i] ? "1," : "0,")
-                    + (nn.TanhLayers[i] ? "1," : "0,"));
+                    + nn.Activations[i].ToString() + ",");
                 //Sum layers have no weights
                 if (nn.Layers[i] is SumLayer || nn.Layers[i] is PoolingLayer) { continue; }
                 for (int j = 0; j < nn.Layers[i].Weights.GetLength(0); j++)

@@ -63,22 +63,22 @@ namespace WGAN1
                 for (int ii = 0; ii < InputLength; ii++)
                 {
                     //Normal gradient descent update
-                    WUpdates[i, ii] = WeightGradient[i, ii] * (-2d / NN.BatchSize);
+                    WUpdates[i, ii] = WeightGradient[i, ii] * (2d / NN.BatchSize);
                     //Root mean square propegation
                     if (NN.UseRMSProp)
                     {
                         WRMSGrad[i, ii] = (WRMSGrad[i, ii] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (WUpdates[i, ii] * WUpdates[i, ii]));
-                        WUpdates[i, ii] = (WUpdates[i, ii] / (Math.Sqrt(WRMSGrad[i, ii])));
+                        WUpdates[i, ii] = (WUpdates[i, ii] / (Math.Sqrt(WRMSGrad[i, ii])/* + NN.Infinitesimal*/));
                     }
                     WUpdates[i, ii] *= NN.LearningRate;
                 }
                 //Normal gradient descent update
-                BUpdates[i] = BiasGradient[i] * (-2d / NN.BatchSize);
+                BUpdates[i] = BiasGradient[i] * (2d / NN.BatchSize);
                 //Root mean square propegation
                 if (NN.UseRMSProp)
                 {
                     BRMSGrad[i] = (BRMSGrad[i] * NN.RMSDecay) + ((1 - NN.RMSDecay) * (BUpdates[i] * BUpdates[i]));
-                    BUpdates[i] = (BUpdates[i] / (Math.Sqrt(BRMSGrad[i])));
+                    BUpdates[i] = (BUpdates[i] / (Math.Sqrt(BRMSGrad[i])/* + NN.Infinitesimal*/));
                 }
                 BUpdates[i] *= NN.LearningRate;
             }
@@ -134,7 +134,8 @@ namespace WGAN1
                 for (int i = 0; i < Length; i++)
                 {
                     double zval = ZVals[b][i];
-                    if (UsesTanh) { zval = Maths.TanhDerriv(ZVals[b][i]); }
+                    if (ActivationFunction == 0) { zval = Maths.TanhDerriv(ZVals[b][i]); }
+                    if (ActivationFunction == 1) { zval = Maths.ReLuDerriv(ZVals[b][i]); }
 
                     for (int ii = 0; ii < InputLength; ii++)
                     {
@@ -159,6 +160,10 @@ namespace WGAN1
                     {
                         vals[k] += Weights[k, j] * inputs[b][j];
                     }
+                    if (output)
+                    {
+                        var t = 2;
+                    }
                     if (!output)
                     {
                         vals[k] += Biases[k];
@@ -166,8 +171,10 @@ namespace WGAN1
                 }
                 ZVals.Add(vals);
             }
-            if (UsesTanh) { Values = Maths.Tanh(ZVals); }
-            else { Values = ZVals; }
+            if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
+            if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
+            Values = ZVals;
         }
     }
 }

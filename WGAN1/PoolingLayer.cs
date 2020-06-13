@@ -30,8 +30,10 @@ namespace WGAN1
             {
                 ZVals.Add(Maths.Convert(Pool(Maths.Convert(inputs[i]), output)));
             }
-            if (UsesTanh) { Values = Maths.Tanh(ZVals); }
-            else { Values = ZVals; }
+            if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
+            if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
+            Values = ZVals; 
         }
 
         public double[,] Pool(double[,] input, bool useless)

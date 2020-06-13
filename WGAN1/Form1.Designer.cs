@@ -362,6 +362,7 @@
             this.InputNormCB.TabIndex = 30;
             this.InputNormCB.Text = "Normalize Inputs";
             this.InputNormCB.UseVisualStyleBackColor = true;
+            this.InputNormCB.CheckedChanged += new System.EventHandler(this.InputNormCB_CheckedChanged);
             // 
             // label9
             // 
@@ -504,11 +505,11 @@
             this.LabelTxt.Size = new System.Drawing.Size(142, 31);
             this.LabelTxt.TabIndex = 45;
             // 
-            // NormErrorsBtn
+            // NormErrorsCB
             // 
             this.NormErrorsCB.AutoSize = true;
             this.NormErrorsCB.Location = new System.Drawing.Point(145, 377);
-            this.NormErrorsCB.Name = "NormErrorsBtn";
+            this.NormErrorsCB.Name = "NormErrorsCB";
             this.NormErrorsCB.Size = new System.Drawing.Size(204, 29);
             this.NormErrorsCB.TabIndex = 47;
             this.NormErrorsCB.Text = "Normalize Errors";

@@ -88,7 +88,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(Critic, Generator, latentsize, resolution, ctogratio, 1, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);   
+                NN.Train(Critic, Generator, latentsize, resolution, ctogratio, 8, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);   
                 //NN.TestTrain(Critic, GradientNormCB.Checked, imgspeed, this);
             });
             thread.IsBackground = true;
@@ -126,17 +126,17 @@ namespace WGAN1
             }
             return residuals;
         }
-        List<bool> GenerateTanhs(bool cog)
+        List<int> GenerateActives(bool cog)
         {
             List<string[]> layers = Split(ActiveLayers);
             if (COG.Checked != cog) { layers = Split(InactiveLayers); }
-            List<bool> tanhs = new List<bool>();
+            List<int> actives = new List<int>();
             foreach (string[] s in layers)
             {
-                if (s.Length > 4 && s[4] == "1") { tanhs.Add(true); continue; }
-                tanhs.Add(false);
+                if (s.Length > 4 && int.TryParse(s[4], out int result)) { actives.Add(result); continue; }
+                actives.Add(-1);
             }
-            return tanhs;
+            return actives;
         }
         List<Layer> GenerateLayers(bool cog)
         {
@@ -278,7 +278,8 @@ namespace WGAN1
         }
         private void ClearBtn_Click(object sender, EventArgs e)
         {
-            NN.Clear = true; CScore = null; GScore = null;
+            NN.Clear = true; CScore = null; GScore = null; 
+            CPercCorrectTxt.Text = null; GPercCorrectTxt.Text = null;
         }
         public int[,] Scaler(int[,] input, int scale)
         {
@@ -406,22 +407,42 @@ namespace WGAN1
             var list = new List<string>();
             if (cog)
             {
-                list.Add("c,4,0,0,1");
-                list.Add("c,3,0,0,1");
-                list.Add("c,2,0,0,1");
-                list.Add("f,100,0,0,1");
+                list.Add("f,529,0,0,0");
+                list.Add("c,7,0,0,0,0,1");
+                list.Add("c,3,0,0,0,0,1");
+                list.Add("f,300,0,0,0");
+                list.Add("f,200,0,0,0");
+                list.Add("f,100,0,0,0");
                 //NEVER SET TANH OR BATCHNORM TO TRUE
                 //YOU WILL BE PROVIDED WITH AN ERROR OF 0
                 //WHICH CASCADES TO MAKE ALL ERRORS IN ALL LAYERS NAN
-                list.Add("f,1,0,0,1");
+                list.Add("f,1,0,0,0");
             }
             else
             {
-                list.Add("cu,2,0,0,1");
-                list.Add("cu,3,0,0,1");
-                list.Add("cu,4,0,0,1");
-                list.Add("f,300,0,0,1");
-                list.Add("f,784,0,0,1");
+                //Residual
+                list.Add("cu,2,0,0,0");
+                list.Add("cu,3,0,0,0");
+                list.Add("cu,4,1,0,0");
+
+                //Residue layer 1
+
+                //2 padded conv layers + sum layer
+                list.Add("c,3,0,0,0,x,1");
+                list.Add("c,3,0,0,0,x,1");
+                list.Add("s,0,0,0");
+                //Upscale
+                list.Add("pu,2,0,0,-1");
+                //ConvT (residual)
+                list.Add("cu,5,1,0,0,0,1");
+
+                list.Add("c,3,0,0,0,0,1");
+                list.Add("c,3,0,0,0,0,1");
+                list.Add("c,3,0,0,0,0,1");
+
+                list.Add("f,500,0,0,0");
+                list.Add("f,500,0,0,0");
+                list.Add("f,784,0,0,0");
             }
             return list;
         }
@@ -442,7 +463,7 @@ namespace WGAN1
                     {
                         layer += desired.ResidualLayers[i] ? "1," : "0,";
                         layer += desired.BatchNormLayers[i] ? "1," : "0,";
-                        layer += desired.TanhLayers[i] ? "1," : "0,";
+                        layer += desired.Activations[i].ToString() + ",";
                     }
                 }
                 if (desired.Layers[i] is ConvolutionLayer) 
@@ -453,7 +474,7 @@ namespace WGAN1
                     layer += conv.KernelSize + ",";
                     layer += desired.ResidualLayers[i] ? "1," : "0,";
                     layer += desired.BatchNormLayers[i] ? "1," : "0,";
-                    layer += desired.TanhLayers[i] ? "1," : "0,";
+                    layer += desired.Activations[i].ToString() + ",";
                     layer += conv.PadSize.ToString() + ",";
                     layer += conv.Stride.ToString();
                 }
@@ -470,7 +491,7 @@ namespace WGAN1
                     {
                         layer += desired.ResidualLayers[i] ? "1," : "0,";
                         layer += desired.BatchNormLayers[i] ? "1," : "0,";
-                        layer += desired.TanhLayers[i] ? "1," : "0,";
+                        layer += desired.Activations[i].ToString() + ",";
                     }
                 }
                 layers.Add(layer);
@@ -657,8 +678,8 @@ namespace WGAN1
             {
                 InactiveLayers = Default(!cog);
             }
-            Generator = new NN().Init(GenerateLayers(false), GenerateTanhs(false), GenerateResiduals(false), GenerateBatchnorms(false));
-            Critic = new NN().Init(GenerateLayers(true), GenerateTanhs(true), GenerateResiduals(true), GenerateBatchnorms(true));
+            Generator = new NN().Init(GenerateLayers(false), GenerateActives(false), GenerateResiduals(false), GenerateBatchnorms(false));
+            Critic = new NN().Init(GenerateLayers(true), GenerateActives(true), GenerateResiduals(true), GenerateBatchnorms(true));
             IO.Write(Critic, true);
             IO.Write(Generator, false);
             if (cog) { OutputCountTxt.Text = Critic.OutputLength.ToString(); }
@@ -720,6 +741,11 @@ namespace WGAN1
         private void NormErrorsCB_CheckedChanged(object sender, EventArgs e)
         {
             NN.NormErrors = true;
+        }
+
+        private void InputNormCB_CheckedChanged(object sender, EventArgs e)
+        {
+            NN.NormOutputs = InputNormCB.Checked;
         }
     }
 }
