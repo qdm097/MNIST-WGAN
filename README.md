@@ -1,5 +1,6 @@
 # MNIST-WGAN
-The project is now feature complete, though partial conv based padding may be added. Other than that only a GUI update remains before the project is finished.
+The project is now feature complete, though partial conv based padding may be added.
+<br>Other than that only a GUI update remains before the project is finished.
 <br>
 ![A 1](https://github.com/qdm097/MNIST-WGAN/blob/master/WGAN1/WGAN8.PNG)
 <br><br>
