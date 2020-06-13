@@ -1,7 +1,7 @@
 # MNIST-WGAN
 Functional code has been achieved!
 <br>
-![A 1](https://github.com/qdm097/MNIST-WGAN/blob/master/WGAN1/GAN1.PNG)
+![A 1](https://github.com/qdm097/MNIST-WGAN/blob/master/WGAN1/WGAN8.PNG)
 <br>
 Work is currently focused on debugging, after which partial conv based padding will be added.
 <br><br>
