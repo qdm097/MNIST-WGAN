@@ -192,24 +192,54 @@ namespace WGAN1
             }
             return output;
         }
+        /// <summary>
+        /// Partial convolution based padding
+        /// </summary>
+        /// <param name="input">The matrix to be padded</param>
+        /// <returns></returns>
         double[,] Pad(double[,] input)
         {
             if (PadSize == 0) { return input; }
 
             int inputxsize = input.GetLength(0);
             int inputysize = input.GetLength(1);
+            int padxsize = 2 * PadSize;
+            int padysize = 2 * PadSize;
 
-            var output = new double[inputxsize + (2 * PadSize), inputysize + (2 * PadSize)];
-
-            for (int i = 0; i < inputxsize - PadSize; i++)
+            //Create and initialize all-1 matrix
+            double[,] filter = new double[padxsize, padysize];
+            for (int i = 0; i < padxsize; i++)
             {
-                for (int ii = 0; ii < inputysize - PadSize; ii++)
+                for (int ii = 0; ii < padysize; ii++)
                 {
-                    output[i + PadSize, ii + PadSize] = input[i, ii];
+                    filter[i, ii] = 1;
                 }
             }
+
+            //Partially convolve all-1 matrix with input matrix
+            var output = new double[inputxsize + (2 * PadSize), inputysize + (2 * PadSize)];
+            for (int i = 0; i < input.GetLength(0); i += Stride)
+            {
+                for (int ii = 0; ii < input.GetLength(1); ii += Stride)
+                {
+                    for (int j = 0; j < filter.GetLength(0); j++)
+                    {
+                        for (int jj = 0; jj < filter.GetLength(1); jj++)
+                        {
+                            if (i + j >= inputxsize + padxsize || ii + jj >= inputysize + padysize) { continue; }
+                            output[(i * Stride) + j, (ii * Stride) + jj] += input[i, ii] * filter[j, jj];
+                        }
+                    }
+                }
+            }
+
             return output;
         }
+        /// <summary>
+        /// Convolution based unpadding
+        /// </summary>
+        /// <param name="input">The matrix to be unpadded</param>
+        /// <returns></returns>
         public double[,] UnPad(double[,] input)
         {
             if (PadSize == 0) { return input; }
@@ -217,15 +247,32 @@ namespace WGAN1
             int outputxsize = input.GetLength(0) - (2 * PadSize);
             int outputysize = input.GetLength(1) - (2 * PadSize);
 
-            var output = new double[outputxsize, outputysize];
-
-            for (int i = 0; i < outputxsize - PadSize; i++)
+            //Create and initialize all-1 matrix
+            double[,] filter = new double[2 * PadSize, 2 * PadSize];
+            for (int i = 0; i < filter.GetLength(0); i++)
             {
-                for (int ii = 0; ii < outputysize - PadSize; ii++)
+                for (int ii = 0; ii < filter.GetLength(1); ii++)
                 {
-                    output[i, ii] = input[i + PadSize, ii + PadSize];
+                    filter[i, ii] = 1;
                 }
             }
+
+            //Convolve all-1 matrix with input matrix
+            double[,] output = new double[outputxsize, outputysize];
+            for (int i = 0; i < outputxsize; i += Stride)
+            {
+                for (int ii = 0; ii < outputysize; ii += Stride)
+                {
+                    for (int j = 0; j < filter.GetLength(0); j++)
+                    {
+                        for (int jj = 0; jj < filter.GetLength(1); jj++)
+                        {
+                            output[i, ii] += input[(i * Stride) + j, (ii * Stride) + jj] * filter[j, jj];
+                        }
+                    }
+                }
+            }
+
             return output;
         }
     }
