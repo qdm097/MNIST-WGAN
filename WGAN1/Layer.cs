@@ -25,7 +25,7 @@ namespace WGAN1
         //[0] = Tanh, [1] = ReLu, [other] = none
         public int ActivationFunction { get; set; }
         public abstract Layer Init(bool isoutput);
-        public abstract void Descend(bool batchnorm);
+        public abstract void Descend();
         /// <summary>
         /// Computes the error signal of the layer, also gradients if applicable
         /// </summary>

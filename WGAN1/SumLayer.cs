@@ -54,7 +54,7 @@ namespace WGAN1
             else { Values = ZVals; }
         }
 
-        public override void Descend(bool batchnorm)
+        public override void Descend()
         {
             throw new NotImplementedException();
         }

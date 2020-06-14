@@ -53,7 +53,7 @@ namespace WGAN1
         /// <param name="batchsize">The number of trials run per cycle</param>
         /// <param name="clipparameter">What the max/min </param>
         /// <param name="RMSDecay">How quickly the RMS gradients decay</param>
-        public override void Descend(bool batchnorm)
+        public override void Descend()
         {
             //Calculate gradients
             WUpdates = new double[Length, InputLength];
@@ -84,7 +84,7 @@ namespace WGAN1
                 BUpdates[i] *= NN.LearningRate;
             }
             //Gradient normalization
-            if (batchnorm) 
+            if (NN.NormGradients) 
             { 
                 WUpdates = Maths.Scale(NN.LearningRate, Maths.Normalize(WUpdates)); 
                 BUpdates = Maths.Scale(NN.LearningRate, Maths.Normalize(BUpdates)); 
@@ -97,7 +97,7 @@ namespace WGAN1
                     //Update weight and average
                     Weights[i, ii] -= WUpdates[i, ii];
                     AvgGradient -= WUpdates[i, ii];
-                    //Gradient clipping
+                    //Weight clipping
                     if (NN.UseClipping)
                     {
                         if (Weights[i, ii] > NN.ClipParameter) { Weights[i, ii] = NN.ClipParameter; }
@@ -105,7 +105,7 @@ namespace WGAN1
                     }
                 }
                 Biases[i] -= BUpdates[i];
-                //Gradient clipping
+                //Bias clipping
                 if (NN.UseClipping)
                 {
                     if (Biases[i] > NN.ClipParameter) { Biases[i] = NN.ClipParameter; }

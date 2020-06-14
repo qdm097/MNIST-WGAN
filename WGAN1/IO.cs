@@ -91,8 +91,9 @@ namespace WGAN1
             {
                 text = sr.ReadToEnd().Split(',');
             }
-            nn.NumLayers = int.Parse(text[0]);
-            int iterator = 1;
+            NN.Number = int.Parse(text[0]);
+            nn.NumLayers = int.Parse(text[1]);
+            int iterator = 2;
             for (int i = 0; i < nn.NumLayers; i++)
             {
                 string type = text[iterator]; iterator++;
@@ -156,7 +157,7 @@ namespace WGAN1
         public static void Write(NN nn, bool COG)
         {
             StreamWriter sw = new StreamWriter(new FileStream(COG ? CWBPath : GWBPath, FileMode.Create, FileAccess.Write, FileShare.None));
-            sw.Write(nn.NumLayers + ",");
+            sw.Write(NN.Number + "," + nn.NumLayers + ",");
             for (int i = 0; i < nn.NumLayers; i++)
             {
                 if (nn.Layers[i] is FullyConnectedLayer)

@@ -19,7 +19,6 @@ namespace WGAN1
         NN Generator;
         int ctogratio = 5;
         int imgspeed = 0;
-
         int resolution = 28;
         int latentsize = 49;
         //The maximum RMSE allowed before the network stops learning
@@ -81,6 +80,7 @@ namespace WGAN1
             RefreshLayerLB();
             //Only want this shown if a conv layer is selected
             UpDownCB.Hide();
+            NumberTxt.Text = NN.Number.ToString();
         }
         private void TrainBtn_Click(object sender, EventArgs e)
         {
@@ -88,7 +88,7 @@ namespace WGAN1
             NN.Training = true;
             var thread = new Thread(() => 
             {
-                NN.Train(Critic, Generator, latentsize, resolution, ctogratio, 8, this, imgspeed, InputNormCB.Checked, GradientNormCB.Checked);   
+                NN.Train(Critic, Generator, latentsize, ctogratio, this, imgspeed);   
                 //NN.TestTrain(Critic, GradientNormCB.Checked, imgspeed, this);
             });
             thread.IsBackground = true;
@@ -521,8 +521,8 @@ namespace WGAN1
             }
             if (layers[LayerLB.SelectedIndex].Length > 2) { ResidualCB.Checked = layers[LayerLB.SelectedIndex][2] == "1"; }
             else { ResidualCB.Checked = false; }
-            if (layers[LayerLB.SelectedIndex].Length > 3) { BatchnormCB.Checked = layers[LayerLB.SelectedIndex][3] == "1"; }
-            else { BatchnormCB.Checked = false; }
+            if (layers[LayerLB.SelectedIndex].Length > 3) { BatchNormCB.Checked = layers[LayerLB.SelectedIndex][3] == "1"; }
+            else { BatchNormCB.Checked = false; }
             if (layers[LayerLB.SelectedIndex].Length > 4) { TanhCB.Checked = layers[LayerLB.SelectedIndex][4] == "1"; }
             else { TanhCB.Checked = false; }
 
@@ -588,7 +588,7 @@ namespace WGAN1
             if (!(type == "s" || type == "p"))
             {
                 residual = ResidualCB.Checked ? "1" : "0";
-                batchnorm = BatchnormCB.Checked ? "1" : "0";
+                batchnorm = BatchNormCB.Checked ? "1" : "0";
                 tanh = TanhCB.Checked ? "1" : "0";
             }
             if (residual is null && batchnorm is null && tanh is null) 
@@ -655,7 +655,7 @@ namespace WGAN1
             if (LayerTypeCB.Text == "Sum") { type = "s"; }
 
             string residual = ResidualCB.Checked ? "1" : "0";
-            string batchnorm = BatchnormCB.Checked ? "1" : "0";
+            string batchnorm = BatchNormCB.Checked ? "1" : "0";
             string tanh = TanhCB.Checked ? "1" : "0";
 
             ActiveLayers[LayerLB.SelectedIndex] = type + result.ToString() + residual + batchnorm + tanh;
@@ -680,6 +680,7 @@ namespace WGAN1
             }
             Generator = new NN().Init(GenerateLayers(false), GenerateActives(false), GenerateResiduals(false), GenerateBatchnorms(false));
             Critic = new NN().Init(GenerateLayers(true), GenerateActives(true), GenerateResiduals(true), GenerateBatchnorms(true));
+            NN.Number = 8;
             IO.Write(Critic, true);
             IO.Write(Generator, false);
             if (cog) { OutputCountTxt.Text = Critic.OutputLength.ToString(); }
@@ -740,12 +741,32 @@ namespace WGAN1
 
         private void NormErrorsCB_CheckedChanged(object sender, EventArgs e)
         {
-            NN.NormErrors = true;
+            NN.NormErrors = NormErrorsCB.Checked;
         }
 
         private void InputNormCB_CheckedChanged(object sender, EventArgs e)
         {
             NN.NormOutputs = InputNormCB.Checked;
+        }
+
+        private void GradientNormCB_CheckedChanged(object sender, EventArgs e)
+        {
+            NN.NormGradients = GradientNormCB.Checked;
+        }
+
+        private void ClipCB_CheckedChanged(object sender, EventArgs e)
+        {
+            NN.UseClipping = ClipCB.Checked;
+        }
+
+        private void NumberTxt_TextChanged(object sender, EventArgs e)
+        {
+            if (!int.TryParse(NumberTxt.Text, out int result)) { return; }
+            else 
+            { 
+                if (result < 0 || result > 9) { MessageBox.Show("Number must be in range [0, 9]"); return; }
+                NN.Number = result; 
+            }
         }
     }
 }

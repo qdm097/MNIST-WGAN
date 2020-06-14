@@ -20,20 +20,22 @@ namespace WGAN1
         List<double[]> Residuals { get; set; }
         public static double LearningRate = 0.000146;
         public static double RMSDecay = .9;
-        
-        //public static double Infinitesimal = 1E-20;
-        public static bool UseClipping = false;
-        public static double ClipParameter = 10;
+        public static int Number { get; set; }
+      
         //Batch size used
         //Note: all for loops involving batchsize use 'b' as the iterator for clarity
         public static int BatchSize = 10;
         public static bool Training = false;
         public static bool Clear = false;
         public static bool Save = true;
+        //Whether to normalize various things
         public static bool NormOutputs = false;
         public static bool NormErrors = false;
+        public static bool NormGradients = false;
+        //Whether to use certain things
         public static bool UseRMSProp = true;
-        public static double Infinitesimal = 1E-30;
+        public static bool UseClipping = false;
+        public static double ClipParameter = 10;
         public int OutputLength { get; set; }
         int Trials = 0;
         public double Error = 0;
@@ -59,6 +61,9 @@ namespace WGAN1
             OutputLength = Layers[NumLayers - 1].OutputLength;
             return this;
         }
+        /// <summary>
+        /// Test code to use the critic as a classifier
+        /// </summary>
         public static void TestTrain (NN Critic, bool gradientnorm, int imgspeed, Form1 activeform)
         {
             int formupdateiterator = 0;
@@ -127,7 +132,7 @@ namespace WGAN1
                 perccorrect /= (10 * BatchSize);
                 score = Math.Sqrt(score);
 
-                Critic.Update(gradientnorm);
+                Critic.Update();
 
                 //Report values to the front end
                 if (Clear)
@@ -184,21 +189,14 @@ namespace WGAN1
         /// <summary>
         /// Trains the GAN
         /// </summary>
-        /// <param name="LoadOrGenerate">Whether to load the WBs or to generate new ones</param>
-        /// <param name="clcount">How many layers are in the critic</param>
-        /// <param name="glcount">How many layers are in the generator</param>
-        /// <param name="cwbcount">How many WBs are in the critic per layer</param>
-        /// <param name="gwbcount">How many WBs are in the generator per layer</param>
-        /// <param name="glayertypes">What type of layer each layer is (convolutional or fully connected)</param>
-        /// <param name="clayertypes">Only feed in FCLs to this or things will break</param>
-        /// <param name="m">Batch size</param>
-        /// <param name="ctg">Critic to generator ratio</param>
-        /// <param name="num">What number is being generated</param>
-        /// <param name="LatentSize">The size of the latent space for the generator</param>
-        /// <param name="activeform">The form where the image will be updated</param>
-        /// <param name="imgspeed">How quickly the image should update as a function of the algorithm</param>
-        public static void Train(NN Critic, NN Generator, int LatentSize, int resolution,
-             int ctg, int num, Form1 activeform, int imgspeed, bool inputnorm, bool gradientnorm)
+        /// <param name="Critic">The network which criticises real and fake images</param>
+        /// <param name="Generator">The network which generates fake images</param>
+        /// <param name="LatentSize">How large the random noise input of the generator is</param>
+        /// <param name="ctg">The Critic To Generator training ratio</param>
+        /// <param name="num">The numerical digit to be learned (0-9)</param>
+        /// <param name="activeform">The form running this method</param>
+        /// <param name="imgspeed">How often generated images are pushed to the front-end</param>
+        public static void Train(NN Critic, NN Generator, int LatentSize, int ctg, Form1 activeform, int imgspeed)
         {
             int formupdateiterator = 0;
             //The generator of the latentspace
@@ -206,10 +204,7 @@ namespace WGAN1
             
             while (Training)
             {
-                double totalrealmean = 0;
-                double totalrealstddev = 0;
                 //Train critic x times per 1 of generator
-               
                 for (int i = 0; i < ctg; i++)
                 {
                     //Batch norm stuff
@@ -226,32 +221,31 @@ namespace WGAN1
                     {
                         
                         //Find next image
-                        realsamples.Add(IO.FindNextNumber(num));
+                        realsamples.Add(IO.FindNextNumber(NN.Number));
 
-                        //Generate fake image from latent space
-                        //fakesamples.Add(Generator.GenerateSample(Maths.RandomGaussian(r, LatentSize), inputnorm));
-                        //Generate fake image from downscaled real image
+                        //Generate latent space for fake image
                         latentspaces.Add(Maths.RandomGaussian(r, LatentSize));
                         //Calculate values to help scale the fakes
                         var mean = Maths.CalcMean(realsamples[ii]);
                         realmean += mean;
                         realstddev += Maths.CalcStdDev(realsamples[ii], mean);
                     }
-                    realmean /= BatchSize; totalrealmean += realmean; 
-                    realstddev /= BatchSize; totalrealstddev += realstddev;
+                    realmean /= BatchSize;
+                    realstddev /= BatchSize;
 
                     //Batchnorm the samples
                     realsamples = Maths.BatchNormalize(realsamples, realmean, realstddev);
                     var fakesamples = Maths.BatchNormalize(Generator.GenerateSamples(latentspaces), realmean, realstddev);
-                    //var fakesamples = Maths.BatchNormalize(Generator.GenerateSamples(latentspaces));
 
-                    double overallscore = 0;
+                    //The RMSE of each network
+                    double CError = 0;
+                    double GError = 0;
+
                     //Critic's scores of each type of sample
                     List<double> rscores = new List<double>();
                     List<double> fscores = new List<double>();
 
                     //Real image calculations
-                    double GError = 0;
                     double RealPercCorrect = 0;
                     Critic.Calculate(realsamples);
                     for (int j = 0; j < BatchSize; j++) 
@@ -260,7 +254,7 @@ namespace WGAN1
                         rscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[j][0]);
                         AvgRealScore += rscores[j];
                         //Add the squared error
-                        overallscore += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
+                        CError += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
                         GError += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
                         //Add whether it was correct or not to the total
                         RealPercCorrect += Critic.Layers[Critic.NumLayers - 1].Values[j][0] > 0 ? 1d : 0d;
@@ -279,32 +273,33 @@ namespace WGAN1
                         fscores.Add(Critic.Layers[Critic.NumLayers - 1].Values[j][0]);
                         AvgFakeScore += fscores[j];
                         //Add the squared error
-                        overallscore += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
+                        CError += Math.Pow(-Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
                         GError += Math.Pow(1d - Critic.Layers[Critic.NumLayers - 1].Values[j][0], 2);
                         //Add whether it was correct or not to the total
                         FakePercIncorrect += Critic.Layers[Critic.NumLayers - 1].Values[j][0] > 0 ? 1d : 0d;
                     }
                     AvgFakeScore /= BatchSize;
                     FakePercIncorrect /= BatchSize;
-                    //Wasserstein loss = real % correct - fake % correct
+                    //Wasserstein loss on fake images = real % correct - fake % correct
                     Critic.CalcGradients(fakesamples, null, RealPercCorrect - (1 - FakePercIncorrect), true);
 
-
                     //Update weights and biases
-                    Critic.Update(gradientnorm);
+                    Critic.Update();
 
-                    //Report values to the front end
+                    //Reset trial number if desired
                     if (Clear) 
                     { 
                         Critic.Trials = 0;
                         Generator.Trials = 0;
                         Clear = false;
                     }
-                    overallscore = Math.Sqrt(overallscore / (2 * BatchSize));
+
+                    //Critic processes 2 images per 1 the generator does
+                    CError = Math.Sqrt(CError / (2 * BatchSize));
                     GError = Math.Sqrt(GError / BatchSize);
                     
                     //Update errors and % correct values
-                    Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (overallscore * (1d / (Critic.Trials + 1d)));
+                    Critic.Error = (Critic.Error * ((Critic.Trials) / (Critic.Trials + 1d))) + (CError * (1d / (Critic.Trials + 1d)));
                     Critic.PercCorrect = (Critic.PercCorrect * ((Critic.Trials) / (Critic.Trials + 1d))) + (RealPercCorrect * (1d / (Critic.Trials + 1d)));
                     Generator.Error = (Generator.Error * ((Generator.Trials) / (Generator.Trials + 1d))) + (GError * (1d / (Generator.Trials + 1)));
                     Generator.PercCorrect = (Generator.PercCorrect * ((Generator.Trials) / (Generator.Trials + 1d))) + (FakePercIncorrect * (1d / (Generator.Trials + 1d)));
@@ -312,9 +307,6 @@ namespace WGAN1
                     Critic.Trials++;
                     Generator.Trials++;
                 }
-                //Adjust loss for batch size and critic to generator ratio
-                totalrealmean /= ctg;
-                totalrealstddev /= ctg;
 
                 //Generate samples
                 List<double[]> testlatents = new List<double[]>();
@@ -336,7 +328,7 @@ namespace WGAN1
                 Generator.CalcGradients(testlatents, Critic.Layers[0], Score, true);
 
                 //Update the generator's weights and biases
-                Generator.Update(gradientnorm);
+                Generator.Update();
 
                 //Update image (if applicable)
                 if (formupdateiterator >= imgspeed)
@@ -461,14 +453,14 @@ namespace WGAN1
         /// <param name="a">Learning rate</param>
         /// <param name="c">Clipping parameter</param>
         /// <param name="rmsd">RMSProp decay parameter</param>
-        public void Update(bool batchnorm)
+        public void Update()
         {
             for (int i = 0; i < NumLayers; i++)
             {
                 //These layer types don't have weights/biases so don't update them
                 if (Layers[i] is SumLayer || Layers[i] is PoolingLayer) { continue; }
                 //Update the weights of [i] layer
-                Layers[i].Descend(batchnorm);
+                Layers[i].Descend();
             }
         }
         /// <summary>
@@ -481,6 +473,7 @@ namespace WGAN1
             Calculate(latentspaces);
             return Layers[NumLayers - 1].Values;
         }
+        //Unused method which would grab a real image and apply static to it for generator input
         List<double[]> GenerateNoisyImages(Random r, int latentsize, int num)
         {
             var output = new List<double[]>();

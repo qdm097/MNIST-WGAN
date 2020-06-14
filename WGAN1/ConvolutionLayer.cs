@@ -41,7 +41,7 @@ namespace WGAN1
             }
             return this;
         }
-        public override void Descend(bool batchnorm)
+        public override void Descend()
         {
             //Calculate gradients
             Updates = new double[KernelSize, KernelSize];
@@ -61,7 +61,7 @@ namespace WGAN1
                 }
             }
             //Gradient normalization
-            if (batchnorm) { Updates = Maths.Scale(NN.LearningRate, Maths.Normalize(Updates)); }
+            if (NN.NormGradients) { Updates = Maths.Scale(NN.LearningRate, Maths.Normalize(Updates)); }
             //Apply updates
             for (int i = 0; i < KernelSize; i++)
             {
@@ -69,7 +69,7 @@ namespace WGAN1
                 {
                     Weights[i, ii] -= Updates[i, ii];
                     AvgUpdate -= Updates[i, ii];
-                    //Gradient clipping
+                    //Weight clipping
                     if (NN.UseClipping)
                     {
                         if (Weights[i, ii] > NN.ClipParameter) { Weights[i, ii] = NN.ClipParameter; }

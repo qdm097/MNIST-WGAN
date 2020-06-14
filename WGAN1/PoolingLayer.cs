@@ -93,7 +93,7 @@ namespace WGAN1
             return this;
         }
 
-        public override void Descend(bool batchnorm)
+        public override void Descend()
         {
             throw new NotImplementedException();
         }

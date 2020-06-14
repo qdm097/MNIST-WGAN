@@ -65,8 +65,6 @@
             this.label10 = new System.Windows.Forms.Label();
             this.SkipTxt = new System.Windows.Forms.TextBox();
             this.ResidualCB = new System.Windows.Forms.CheckBox();
-            this.BatchnormCB = new System.Windows.Forms.CheckBox();
-            this.TanhCB = new System.Windows.Forms.CheckBox();
             this.OutputCountTxt = new System.Windows.Forms.TextBox();
             this.label11 = new System.Windows.Forms.Label();
             this.label12 = new System.Windows.Forms.Label();
@@ -76,6 +74,12 @@
             this.label14 = new System.Windows.Forms.Label();
             this.LabelTxt = new System.Windows.Forms.TextBox();
             this.NormErrorsCB = new System.Windows.Forms.CheckBox();
+            this.label15 = new System.Windows.Forms.Label();
+            this.ClipCB = new System.Windows.Forms.CheckBox();
+            this.NumberTxt = new System.Windows.Forms.TextBox();
+            this.label16 = new System.Windows.Forms.Label();
+            this.TanhCB = new System.Windows.Forms.CheckBox();
+            this.BatchNormCB = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.NumPB)).BeginInit();
             this.SuspendLayout();
             // 
@@ -89,7 +93,7 @@
             // 
             // AlphaTxt
             // 
-            this.AlphaTxt.Location = new System.Drawing.Point(109, 181);
+            this.AlphaTxt.Location = new System.Drawing.Point(112, 109);
             this.AlphaTxt.Name = "AlphaTxt";
             this.AlphaTxt.Size = new System.Drawing.Size(142, 31);
             this.AlphaTxt.TabIndex = 1;
@@ -98,7 +102,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(105, 153);
+            this.label1.Location = new System.Drawing.Point(108, 81);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(147, 25);
             this.label1.TabIndex = 2;
@@ -107,7 +111,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(279, 153);
+            this.label2.Location = new System.Drawing.Point(282, 81);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(120, 25);
             this.label2.TabIndex = 3;
@@ -116,7 +120,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(105, 215);
+            this.label3.Location = new System.Drawing.Point(108, 143);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(115, 25);
             this.label3.TabIndex = 4;
@@ -124,7 +128,7 @@
             // 
             // RMSDTxt
             // 
-            this.RMSDTxt.Location = new System.Drawing.Point(257, 181);
+            this.RMSDTxt.Location = new System.Drawing.Point(260, 109);
             this.RMSDTxt.Name = "RMSDTxt";
             this.RMSDTxt.Size = new System.Drawing.Size(142, 31);
             this.RMSDTxt.TabIndex = 5;
@@ -132,7 +136,7 @@
             // 
             // MTxt
             // 
-            this.MTxt.Location = new System.Drawing.Point(109, 243);
+            this.MTxt.Location = new System.Drawing.Point(112, 171);
             this.MTxt.Name = "MTxt";
             this.MTxt.Size = new System.Drawing.Size(142, 31);
             this.MTxt.TabIndex = 6;
@@ -141,7 +145,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(10, 277);
+            this.label4.Location = new System.Drawing.Point(13, 205);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(243, 25);
             this.label4.TabIndex = 8;
@@ -149,7 +153,7 @@
             // 
             // CTGTxt
             // 
-            this.CTGTxt.Location = new System.Drawing.Point(110, 305);
+            this.CTGTxt.Location = new System.Drawing.Point(113, 233);
             this.CTGTxt.Name = "CTGTxt";
             this.CTGTxt.Size = new System.Drawing.Size(142, 31);
             this.CTGTxt.TabIndex = 7;
@@ -157,9 +161,9 @@
             // 
             // TrainBtn
             // 
-            this.TrainBtn.Location = new System.Drawing.Point(101, 435);
+            this.TrainBtn.Location = new System.Drawing.Point(113, 468);
             this.TrainBtn.Name = "TrainBtn";
-            this.TrainBtn.Size = new System.Drawing.Size(142, 45);
+            this.TrainBtn.Size = new System.Drawing.Size(289, 45);
             this.TrainBtn.TabIndex = 9;
             this.TrainBtn.Text = "Train";
             this.TrainBtn.UseVisualStyleBackColor = true;
@@ -168,7 +172,7 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(256, 277);
+            this.label5.Location = new System.Drawing.Point(259, 205);
             this.label5.Name = "label5";
             this.label5.Size = new System.Drawing.Size(195, 25);
             this.label5.TabIndex = 11;
@@ -176,7 +180,7 @@
             // 
             // ClipTxt
             // 
-            this.ClipTxt.Location = new System.Drawing.Point(257, 305);
+            this.ClipTxt.Location = new System.Drawing.Point(260, 233);
             this.ClipTxt.Name = "ClipTxt";
             this.ClipTxt.Size = new System.Drawing.Size(142, 31);
             this.ClipTxt.TabIndex = 10;
@@ -185,7 +189,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(104, 495);
+            this.label6.Location = new System.Drawing.Point(108, 280);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(128, 25);
             this.label6.TabIndex = 13;
@@ -193,7 +197,7 @@
             // 
             // CScoreTxt
             // 
-            this.CScoreTxt.Location = new System.Drawing.Point(109, 523);
+            this.CScoreTxt.Location = new System.Drawing.Point(113, 308);
             this.CScoreTxt.Name = "CScoreTxt";
             this.CScoreTxt.ReadOnly = true;
             this.CScoreTxt.Size = new System.Drawing.Size(142, 31);
@@ -201,9 +205,9 @@
             // 
             // ClearBtn
             // 
-            this.ClearBtn.Location = new System.Drawing.Point(249, 435);
+            this.ClearBtn.Location = new System.Drawing.Point(113, 420);
             this.ClearBtn.Name = "ClearBtn";
-            this.ClearBtn.Size = new System.Drawing.Size(142, 45);
+            this.ClearBtn.Size = new System.Drawing.Size(291, 45);
             this.ClearBtn.TabIndex = 14;
             this.ClearBtn.Text = "Clear";
             this.ClearBtn.UseVisualStyleBackColor = true;
@@ -211,7 +215,7 @@
             // 
             // ResetBtn
             // 
-            this.ResetBtn.Location = new System.Drawing.Point(1479, 611);
+            this.ResetBtn.Location = new System.Drawing.Point(1463, 493);
             this.ResetBtn.Name = "ResetBtn";
             this.ResetBtn.Size = new System.Drawing.Size(142, 45);
             this.ResetBtn.TabIndex = 15;
@@ -329,7 +333,7 @@
             // label8
             // 
             this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(253, 495);
+            this.label8.Location = new System.Drawing.Point(257, 280);
             this.label8.Name = "label8";
             this.label8.Size = new System.Drawing.Size(175, 25);
             this.label8.TabIndex = 28;
@@ -337,7 +341,7 @@
             // 
             // GScoreTxt
             // 
-            this.GScoreTxt.Location = new System.Drawing.Point(258, 523);
+            this.GScoreTxt.Location = new System.Drawing.Point(262, 308);
             this.GScoreTxt.Name = "GScoreTxt";
             this.GScoreTxt.ReadOnly = true;
             this.GScoreTxt.Size = new System.Drawing.Size(142, 31);
@@ -346,7 +350,7 @@
             // UpDownCB
             // 
             this.UpDownCB.AutoSize = true;
-            this.UpDownCB.Location = new System.Drawing.Point(1168, 646);
+            this.UpDownCB.Location = new System.Drawing.Point(1168, 716);
             this.UpDownCB.Name = "UpDownCB";
             this.UpDownCB.Size = new System.Drawing.Size(167, 29);
             this.UpDownCB.TabIndex = 29;
@@ -356,18 +360,18 @@
             // InputNormCB
             // 
             this.InputNormCB.AutoSize = true;
-            this.InputNormCB.Location = new System.Drawing.Point(257, 342);
+            this.InputNormCB.Location = new System.Drawing.Point(1460, 681);
             this.InputNormCB.Name = "InputNormCB";
-            this.InputNormCB.Size = new System.Drawing.Size(204, 29);
+            this.InputNormCB.Size = new System.Drawing.Size(119, 29);
             this.InputNormCB.TabIndex = 30;
-            this.InputNormCB.Text = "Normalize Inputs";
+            this.InputNormCB.Text = "Outputs";
             this.InputNormCB.UseVisualStyleBackColor = true;
             this.InputNormCB.CheckedChanged += new System.EventHandler(this.InputNormCB_CheckedChanged);
             // 
             // label9
             // 
             this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(187, 643);
+            this.label9.Location = new System.Drawing.Point(109, 524);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(150, 25);
             this.label9.TabIndex = 32;
@@ -375,7 +379,7 @@
             // 
             // EpochTxt
             // 
-            this.EpochTxt.Location = new System.Drawing.Point(192, 671);
+            this.EpochTxt.Location = new System.Drawing.Point(114, 552);
             this.EpochTxt.Name = "EpochTxt";
             this.EpochTxt.ReadOnly = true;
             this.EpochTxt.Size = new System.Drawing.Size(142, 31);
@@ -384,17 +388,18 @@
             // GradientNormCB
             // 
             this.GradientNormCB.AutoSize = true;
-            this.GradientNormCB.Location = new System.Drawing.Point(57, 342);
+            this.GradientNormCB.Location = new System.Drawing.Point(1460, 611);
             this.GradientNormCB.Name = "GradientNormCB";
-            this.GradientNormCB.Size = new System.Drawing.Size(194, 29);
+            this.GradientNormCB.Size = new System.Drawing.Size(137, 29);
             this.GradientNormCB.TabIndex = 33;
-            this.GradientNormCB.Text = "Norm Gradients";
+            this.GradientNormCB.Text = "Gradients";
             this.GradientNormCB.UseVisualStyleBackColor = true;
+            this.GradientNormCB.CheckedChanged += new System.EventHandler(this.GradientNormCB_CheckedChanged);
             // 
             // label10
             // 
             this.label10.AutoSize = true;
-            this.label10.Location = new System.Drawing.Point(272, 215);
+            this.label10.Location = new System.Drawing.Point(275, 143);
             this.label10.Name = "label10";
             this.label10.Size = new System.Drawing.Size(127, 25);
             this.label10.TabIndex = 35;
@@ -402,7 +407,7 @@
             // 
             // SkipTxt
             // 
-            this.SkipTxt.Location = new System.Drawing.Point(257, 243);
+            this.SkipTxt.Location = new System.Drawing.Point(260, 171);
             this.SkipTxt.Name = "SkipTxt";
             this.SkipTxt.Size = new System.Drawing.Size(142, 31);
             this.SkipTxt.TabIndex = 34;
@@ -412,34 +417,14 @@
             this.ResidualCB.AutoSize = true;
             this.ResidualCB.Location = new System.Drawing.Point(1168, 681);
             this.ResidualCB.Name = "ResidualCB";
-            this.ResidualCB.Size = new System.Drawing.Size(214, 29);
+            this.ResidualCB.Size = new System.Drawing.Size(128, 29);
             this.ResidualCB.TabIndex = 36;
-            this.ResidualCB.Text = "Save for Residual";
+            this.ResidualCB.Text = "Residual";
             this.ResidualCB.UseVisualStyleBackColor = true;
-            // 
-            // BatchnormCB
-            // 
-            this.BatchnormCB.AutoSize = true;
-            this.BatchnormCB.Location = new System.Drawing.Point(1168, 719);
-            this.BatchnormCB.Name = "BatchnormCB";
-            this.BatchnormCB.Size = new System.Drawing.Size(147, 29);
-            this.BatchnormCB.TabIndex = 37;
-            this.BatchnormCB.Text = "Batchnorm";
-            this.BatchnormCB.UseVisualStyleBackColor = true;
-            // 
-            // TanhCB
-            // 
-            this.TanhCB.AutoSize = true;
-            this.TanhCB.Location = new System.Drawing.Point(1321, 719);
-            this.TanhCB.Name = "TanhCB";
-            this.TanhCB.Size = new System.Drawing.Size(139, 29);
-            this.TanhCB.TabIndex = 38;
-            this.TanhCB.Text = "Use ReLu";
-            this.TanhCB.UseVisualStyleBackColor = true;
             // 
             // OutputCountTxt
             // 
-            this.OutputCountTxt.Location = new System.Drawing.Point(1479, 570);
+            this.OutputCountTxt.Location = new System.Drawing.Point(1463, 452);
             this.OutputCountTxt.Name = "OutputCountTxt";
             this.OutputCountTxt.ReadOnly = true;
             this.OutputCountTxt.Size = new System.Drawing.Size(142, 31);
@@ -448,7 +433,7 @@
             // label11
             // 
             this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(1479, 542);
+            this.label11.Location = new System.Drawing.Point(1463, 424);
             this.label11.Name = "label11";
             this.label11.Size = new System.Drawing.Size(139, 25);
             this.label11.TabIndex = 39;
@@ -457,7 +442,7 @@
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(253, 560);
+            this.label12.Location = new System.Drawing.Point(257, 345);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(203, 25);
             this.label12.TabIndex = 44;
@@ -465,7 +450,7 @@
             // 
             // GPercCorrectTxt
             // 
-            this.GPercCorrectTxt.Location = new System.Drawing.Point(258, 588);
+            this.GPercCorrectTxt.Location = new System.Drawing.Point(262, 373);
             this.GPercCorrectTxt.Name = "GPercCorrectTxt";
             this.GPercCorrectTxt.ReadOnly = true;
             this.GPercCorrectTxt.Size = new System.Drawing.Size(142, 31);
@@ -474,7 +459,7 @@
             // label13
             // 
             this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(104, 560);
+            this.label13.Location = new System.Drawing.Point(108, 345);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(156, 25);
             this.label13.TabIndex = 42;
@@ -482,7 +467,7 @@
             // 
             // CPercCorrectTxt
             // 
-            this.CPercCorrectTxt.Location = new System.Drawing.Point(109, 588);
+            this.CPercCorrectTxt.Location = new System.Drawing.Point(113, 373);
             this.CPercCorrectTxt.Name = "CPercCorrectTxt";
             this.CPercCorrectTxt.ReadOnly = true;
             this.CPercCorrectTxt.Size = new System.Drawing.Size(142, 31);
@@ -491,7 +476,7 @@
             // label14
             // 
             this.label14.AutoSize = true;
-            this.label14.Location = new System.Drawing.Point(722, 677);
+            this.label14.Location = new System.Drawing.Point(337, 524);
             this.label14.Name = "label14";
             this.label14.Size = new System.Drawing.Size(65, 25);
             this.label14.TabIndex = 46;
@@ -499,7 +484,7 @@
             // 
             // LabelTxt
             // 
-            this.LabelTxt.Location = new System.Drawing.Point(727, 705);
+            this.LabelTxt.Location = new System.Drawing.Point(262, 552);
             this.LabelTxt.Name = "LabelTxt";
             this.LabelTxt.ReadOnly = true;
             this.LabelTxt.Size = new System.Drawing.Size(142, 31);
@@ -508,19 +493,81 @@
             // NormErrorsCB
             // 
             this.NormErrorsCB.AutoSize = true;
-            this.NormErrorsCB.Location = new System.Drawing.Point(145, 377);
+            this.NormErrorsCB.Location = new System.Drawing.Point(1460, 646);
             this.NormErrorsCB.Name = "NormErrorsCB";
-            this.NormErrorsCB.Size = new System.Drawing.Size(204, 29);
+            this.NormErrorsCB.Size = new System.Drawing.Size(102, 29);
             this.NormErrorsCB.TabIndex = 47;
-            this.NormErrorsCB.Text = "Normalize Errors";
+            this.NormErrorsCB.Text = "Errors";
             this.NormErrorsCB.UseVisualStyleBackColor = true;
             this.NormErrorsCB.CheckedChanged += new System.EventHandler(this.NormErrorsCB_CheckedChanged);
+            // 
+            // label15
+            // 
+            this.label15.AutoSize = true;
+            this.label15.Location = new System.Drawing.Point(1458, 571);
+            this.label15.Name = "label15";
+            this.label15.Size = new System.Drawing.Size(108, 25);
+            this.label15.TabIndex = 48;
+            this.label15.Text = "Normalize";
+            // 
+            // ClipCB
+            // 
+            this.ClipCB.AutoSize = true;
+            this.ClipCB.Location = new System.Drawing.Point(1302, 681);
+            this.ClipCB.Name = "ClipCB";
+            this.ClipCB.Size = new System.Drawing.Size(132, 29);
+            this.ClipCB.TabIndex = 49;
+            this.ClipCB.Text = "Clip WBs";
+            this.ClipCB.UseVisualStyleBackColor = true;
+            this.ClipCB.CheckedChanged += new System.EventHandler(this.ClipCB_CheckedChanged);
+            // 
+            // NumberTxt
+            // 
+            this.NumberTxt.Location = new System.Drawing.Point(225, 625);
+            this.NumberTxt.Name = "NumberTxt";
+            this.NumberTxt.Size = new System.Drawing.Size(82, 31);
+            this.NumberTxt.TabIndex = 50;
+            this.NumberTxt.TextChanged += new System.EventHandler(this.NumberTxt_TextChanged);
+            // 
+            // label16
+            // 
+            this.label16.AutoSize = true;
+            this.label16.Location = new System.Drawing.Point(220, 597);
+            this.label16.Name = "label16";
+            this.label16.Size = new System.Drawing.Size(87, 25);
+            this.label16.TabIndex = 51;
+            this.label16.Text = "Number";
+            // 
+            // TanhCB
+            // 
+            this.TanhCB.AutoSize = true;
+            this.TanhCB.Location = new System.Drawing.Point(1168, 646);
+            this.TanhCB.Name = "TanhCB";
+            this.TanhCB.Size = new System.Drawing.Size(235, 29);
+            this.TanhCB.TabIndex = 38;
+            this.TanhCB.Text = "Tanh [1] or ReLu [0]";
+            this.TanhCB.UseVisualStyleBackColor = true;
+            // 
+            // BatchNormCB
+            // 
+            this.BatchNormCB.AutoSize = true;
+            this.BatchNormCB.Location = new System.Drawing.Point(1460, 716);
+            this.BatchNormCB.Name = "BatchNormCB";
+            this.BatchNormCB.Size = new System.Drawing.Size(99, 29);
+            this.BatchNormCB.TabIndex = 52;
+            this.BatchNormCB.Text = "Batch";
+            this.BatchNormCB.UseVisualStyleBackColor = true;
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1743, 760);
+            this.Controls.Add(this.BatchNormCB);
+            this.Controls.Add(this.label16);
+            this.Controls.Add(this.NumberTxt);
+            this.Controls.Add(this.ClipCB);
+            this.Controls.Add(this.label15);
             this.Controls.Add(this.NormErrorsCB);
             this.Controls.Add(this.label14);
             this.Controls.Add(this.LabelTxt);
@@ -531,7 +578,6 @@
             this.Controls.Add(this.OutputCountTxt);
             this.Controls.Add(this.label11);
             this.Controls.Add(this.TanhCB);
-            this.Controls.Add(this.BatchnormCB);
             this.Controls.Add(this.ResidualCB);
             this.Controls.Add(this.label10);
             this.Controls.Add(this.SkipTxt);
@@ -616,8 +662,6 @@
         private System.Windows.Forms.Label label10;
         private System.Windows.Forms.TextBox SkipTxt;
         private System.Windows.Forms.CheckBox ResidualCB;
-        private System.Windows.Forms.CheckBox BatchnormCB;
-        private System.Windows.Forms.CheckBox TanhCB;
         private System.Windows.Forms.TextBox OutputCountTxt;
         private System.Windows.Forms.Label label11;
         private System.Windows.Forms.Label label12;
@@ -627,6 +671,12 @@
         private System.Windows.Forms.Label label14;
         private System.Windows.Forms.TextBox LabelTxt;
         private System.Windows.Forms.CheckBox NormErrorsCB;
+        private System.Windows.Forms.Label label15;
+        private System.Windows.Forms.CheckBox ClipCB;
+        private System.Windows.Forms.TextBox NumberTxt;
+        private System.Windows.Forms.Label label16;
+        private System.Windows.Forms.CheckBox TanhCB;
+        private System.Windows.Forms.CheckBox BatchNormCB;
     }
 }
 
