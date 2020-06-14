@@ -541,8 +541,8 @@ namespace WGAN1
             //Layer list box
             string selected = LayerLB.Items[LayerLB.SelectedIndex].ToString();
             string replaced = LayerLB.Items[LayerLB.SelectedIndex - 1].ToString();
-            selected = selected.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex - 1).ToString());
-            replaced = replaced.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex).ToString());
+            selected = selected.Remove(1, LayerLB.SelectedIndex.ToString().Length).Insert(1, (LayerLB.SelectedIndex - 1).ToString());
+            replaced = replaced.Remove(1, LayerLB.SelectedIndex.ToString().Length).Insert(1, (LayerLB.SelectedIndex).ToString());
             LayerLB.Items[LayerLB.SelectedIndex] = replaced;
             LayerLB.Items[LayerLB.SelectedIndex - 1] = selected;
             LayerLB.SelectedIndex--;
@@ -558,8 +558,8 @@ namespace WGAN1
             //Layer list box
             string selected = LayerLB.Items[LayerLB.SelectedIndex].ToString();
             string replaced = LayerLB.Items[LayerLB.SelectedIndex + 1].ToString();
-            selected = selected.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex + 1).ToString());
-            replaced = replaced.Remove(1, 1).Insert(1, (LayerLB.SelectedIndex).ToString());
+            selected = selected.Remove(1, LayerLB.SelectedIndex.ToString().Length).Insert(1, (LayerLB.SelectedIndex + 1).ToString());
+            replaced = replaced.Remove(1, LayerLB.SelectedIndex.ToString().Length).Insert(1, (LayerLB.SelectedIndex).ToString());
             LayerLB.Items[LayerLB.SelectedIndex] = replaced;
             LayerLB.Items[LayerLB.SelectedIndex + 1] = selected;
             LayerLB.SelectedIndex++;
@@ -616,22 +616,16 @@ namespace WGAN1
             if (ActiveLayers[LayerLB.SelectedIndex].ToString()[0] == 's') { return; }
             if (LayerLB.SelectedIndex == LayerLB.Items.Count - 1) { return; }
 
-            if (!(int.TryParse(LayerCountTxt.Text, out int result)) || result > 100 || result < 1)
+            if (!(int.TryParse(LayerCountTxt.Text, out int result)) || result < 1)
             {
-                if (LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'C')
-                {
-                    LayerCountTxt.Text = 30.ToString();
-                }
-                else
-                {
-                    LayerCountTxt.Text = 5.ToString();
-                }
-                MessageBox.Show("Layer count must be an int between 0 and 100\nReset to default"); return; 
+                MessageBox.Show("Layer count must be an int >= 1\nNo changes were made"); return; 
             }
-            if (result % 2 == 0 && LayerLB.Items[LayerLB.SelectedIndex].ToString()[4] == 'C')
-            {
-                LayerCountTxt.Text = (result - 1).ToString(); MessageBox.Show("Convolution layers must have odd kernel sizes to allow for padding");
-            }
+            var temp = ActiveLayers[LayerLB.SelectedIndex].Split(',');
+            if (temp[1] == result.ToString()) { return; }
+            temp[1] = result.ToString();
+            ActiveLayers[LayerLB.SelectedIndex] = "";
+            foreach (string s in temp) { ActiveLayers[LayerLB.SelectedIndex] += s + ","; }
+            RefreshLayerLB();
         }
 
         private void UpdateBtn_Click(object sender, EventArgs e)
@@ -658,7 +652,7 @@ namespace WGAN1
             string batchnorm = BatchNormCB.Checked ? "1" : "0";
             string tanh = TanhCB.Checked ? "1" : "0";
 
-            ActiveLayers[LayerLB.SelectedIndex] = type + result.ToString() + residual + batchnorm + tanh;
+            ActiveLayers[LayerLB.SelectedIndex] = type + "," + result.ToString() + "," + residual + "," + batchnorm + "," + tanh;
             LayerLB.Items[LayerLB.SelectedIndex] = "[" + LayerLB.SelectedIndex.ToString() + "] " + LayerTypeCB.Text + ", " + result.ToString();
         }
 
@@ -688,6 +682,7 @@ namespace WGAN1
         }
         private void RefreshLayerLB()
         {
+            int index = LayerLB.SelectedIndex;
             LayerLB.Items.Clear();
             List<string[]> layers = Split(ActiveLayers);
             for (int i = 0; i < ActiveLayers.Count; i++)
@@ -700,6 +695,7 @@ namespace WGAN1
                 if (layers[i].Length > 1 && layers[i][0][0] != 's') { description += layers[i][1].ToString(); }
                 LayerLB.Items.Add("[" + i + "] " + description);
             }
+            if (LayerLB.Items.Count > index) { LayerLB.SelectedIndex = index; }
         }
 
         private void COG_CheckedChanged(object sender, EventArgs e)
