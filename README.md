@@ -1,7 +1,7 @@
 # MNIST-WGAN
 The project is now feature complete, though partial conv based padding may be added.
 <br>Other than that only a GUI update remains before the project is finished.
-<br><br>It will be finished within the week.<br>
+<br><br>It will be finished within ~1 week.<br>
 <br>
 ![A 1](https://github.com/qdm097/MNIST-WGAN/blob/master/WGAN1/WGAN8.PNG)
 <br><br>
