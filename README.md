@@ -1,5 +1,5 @@
 # MNIST-WGAN
-The project is now feature complete, though partial conv based padding may be added.
+The project is now feature complete.
 <br>Other than that only a GUI update remains before the project is finished.
 <br><br>It will be finished within ~1 week.<br>
 <br>
