@@ -30,7 +30,9 @@ namespace WGAN1
             {
                 ZVals.Add(Maths.Convert(Pool(Maths.Convert(inputs[i]), output)));
             }
+            //If normalizing, do so, but only if it won't return an all-zero matrix
             if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            //Use the specified type of activation function
             if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
             if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
             Values = ZVals; 

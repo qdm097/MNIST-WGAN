@@ -416,7 +416,7 @@ namespace WGAN1
                 //NEVER SET TANH OR BATCHNORM TO TRUE
                 //YOU WILL BE PROVIDED WITH AN ERROR OF 0
                 //WHICH CASCADES TO MAKE ALL ERRORS IN ALL LAYERS NAN
-                list.Add("f,1,0,0,0");
+                list.Add("f,1,0,0,-1");
             }
             else
             {

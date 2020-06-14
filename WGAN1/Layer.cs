@@ -11,23 +11,31 @@ namespace WGAN1
 {
     public abstract class Layer
     {
+        //The weights (or mask in the case of a pooling layer) of the layer
         public double[,] Weights { get; set; }
+        //The error signal of the layer
         public List<double[]> Errors { get; set; }
+        //The values of the layer after having been put through an activation function (if applicable)
         public List<double[]> Values { get; set; }
+        //The raw values of the layer
         public List<double[]> ZVals { get; set; }
         public int OutputLength { get; set; }
         public int Length { get; set; }
         public int InputLength { get; set; }
+        //[0] = Tanh, [1] = ReLu, [other] = none
         public int ActivationFunction { get; set; }
         public abstract Layer Init(bool isoutput);
         public abstract void Descend(bool batchnorm);
         /// <summary>
-        /// Descent for other layers
+        /// Computes the error signal of the layer, also gradients if applicable
         /// </summary>
         /// <param name="input">Previous layer's values</param>
         /// <param name="output">Whether the layer is the output layer</param>
+        /// <param name="loss">The loss of the layer</param>
+        /// <param name="calcgradients">Whether or not to calculate gradients in the layer</param>
         public void Backprop(List<double[]> inputs, Layer outputlayer, double loss, bool calcgradients)
         {
+            //Reset errors
             Errors = new List<double[]>();
 
             //Calculate errors
@@ -136,6 +144,7 @@ namespace WGAN1
                     }
                 }
             }
+            //Normalize errors (if applicable)
             if (NN.NormErrors && Errors[0].Length > 1)
             {
                 Errors = Maths.Normalize(Errors);

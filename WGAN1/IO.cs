@@ -62,6 +62,18 @@ namespace WGAN1
             }
             return output;
         }
+
+        /* 
+         * Apologies that this code is indecipherable; it was made during a flury of changes and bugfixes.
+         * Documenting it would have been purposeless at the time of writing due to how quickly it was being changed.
+         * And it's too large to easily document now.
+         * 
+         * Its purpose is to read/write NNs to a file in CSV format
+         * If you misalign something, it will silently fail
+         * 
+         * Should you choose to ignore this warning, good luck to you, a brave soul!
+         */
+
         /// <summary>
         /// Returns a NN from a file
         /// </summary>

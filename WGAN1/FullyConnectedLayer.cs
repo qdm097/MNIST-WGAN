@@ -41,6 +41,7 @@ namespace WGAN1
             {
                 for (int jj = 0; jj < InputLength; jj++)
                 {
+                    //LeCun initialization
                     Weights[j, jj] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(3d / (InputLength * InputLength));
                 }
             }
@@ -156,14 +157,12 @@ namespace WGAN1
                 var vals = new double[Length];
                 for (int k = 0; k < Length; k++)
                 {
+                    //Values = (weights * inputs) + biases
                     for (int j = 0; j < InputLength; j++)
                     {
                         vals[k] += Weights[k, j] * inputs[b][j];
                     }
-                    if (output)
-                    {
-                        var t = 2;
-                    }
+                    //Output layers don't use biases
                     if (!output)
                     {
                         vals[k] += Biases[k];
@@ -171,7 +170,9 @@ namespace WGAN1
                 }
                 ZVals.Add(vals);
             }
+            //If normalizing, do so, but only if it won't return an all-zero matrix
             if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            //Use the specified type of activation function
             if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
             if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
             Values = ZVals;

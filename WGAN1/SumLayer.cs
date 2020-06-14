@@ -23,6 +23,11 @@ namespace WGAN1
         {
             throw new NotImplementedException();
         }
+        /// <summary>
+        /// Adds two matrices together
+        /// </summary>
+        /// <param name="inputs1">Matrix 1</param>
+        /// <param name="inputs2">Matrix 2</param>
         public void Calculate(List<double[]> inputs1, List<double[]> inputs2)
         {
             ZVals = new List<double[]>();
@@ -41,7 +46,9 @@ namespace WGAN1
                 }
                 ZVals.Add(output);
             }
+            //If normalizing, do so, but only if it won't return an all-zero matrix
             if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            //Use the specified type of activation function
             if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
             if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
             else { Values = ZVals; }

@@ -35,6 +35,7 @@ namespace WGAN1
             {
                 for (int ii = 0; ii < KernelSize; ii++)
                 {
+                    //LeCun initialization
                     Weights[i, ii] = (r.NextDouble() > .5 ? -1 : 1) * r.NextDouble() * Math.Sqrt(3d / (InputLength * InputLength));
                 }
             }
@@ -115,11 +116,19 @@ namespace WGAN1
             {
                 ZVals.Add(Maths.Convert(DownOrUp ? Convolve(Weights, Pad(Maths.Convert(inputs[b]))) : FullConvolve(Weights, Pad(Maths.Convert(inputs[b])))));
             }
+            //If normalizing, do so, but only if it won't return an all-zero matrix
             if (NN.NormOutputs && ZVals[0].Length > 1) { ZVals = Maths.Normalize(ZVals); }
+            //Use the specified type of activation function
             if (ActivationFunction == 0) { Values = Maths.Tanh(ZVals); return; }
             if (ActivationFunction == 1) { Values = Maths.ReLu(ZVals); return; }
             Values = ZVals; 
         }
+        /// <summary>
+        /// Convolves a filter across a matrix
+        /// </summary>
+        /// <param name="filter">Filter matrix</param>
+        /// <param name="input">Input matrix</param>
+        /// <returns></returns>
         public double[,] Convolve(double[,] filter, double[,] input)
         {
             int kernelsize = filter.GetLength(0);
@@ -143,7 +152,8 @@ namespace WGAN1
             return output;
         }
         /// <summary>
-        /// This is also known as "Transposed convolution" and "Partially strided convolution"
+        /// This is also known as "transposed convolution," "partially strided convolution" and "fractionally strided convolution."
+        /// The last term explains it most clearly in my current eyes.
         /// </summary>
         /// <param name="filter"></param>
         /// <param name="input"></param>
