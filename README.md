@@ -1,6 +1,6 @@
 # MNIST-WGAN
 <b>Overview</b><br>
-This project generates hand-written digits from the MNIST dataset using WGAN architecture.
+This project generates hand-written digits from the MNIST dataset using WGAN architecture. While debugged, a few lingering issues may remain, if you encounter any please submit them and they will be resolved.
 <br><b>Use</b><br>
 Before use, one should verify that the network architecture is as-desired. This may be done with the GUI to the right of the number display. The "Default" button resets the network to hard-coded values which I have verified function. The "Reset" button sets the ACTIVE network to whatever architecture is displayed. Also, resetting ONLY DOES SO FOR THE DISPLAYED NETWORK, which may be unintuitive. In order to change which network is displayed, use the "Critic \[1\] or Generator \[0\]" checkbox.
 <br>To begin training the network, press the "Train" button, after which you may use the "Clear" button to reset the average error and average percent correct value textboxes.
