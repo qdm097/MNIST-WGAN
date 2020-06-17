@@ -11,7 +11,7 @@ In order to use the project on an alternative dataset, one must replace the MNIS
 <br><b>Future plans</b><br>
 There's still some improvements I could make to the project (like letting the front-end assign no activation function to a layer). However, I've been working on this for so long that I feel like letting this rest as-is for a while.
 <br><br>
-<b>Example</b><br>
+<b>Example</b><br><br>
 ![A 1](https://github.com/qdm097/MNIST-WGAN/blob/master/WGAN1/WGAN8.PNG)
 <br><br>
 
